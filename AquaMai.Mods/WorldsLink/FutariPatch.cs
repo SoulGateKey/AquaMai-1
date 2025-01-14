@@ -21,6 +21,9 @@ public static class FutariPatch
     private static FutariClient client;
     private static bool isInit = false;
 
+    private const bool BLOCK_ORIGINAL = false;
+    private const bool RUN_ORIGINAL = true;
+
     static MethodBase packet_writeunit;
     public static void OnBeforePatch()
     {
@@ -39,9 +42,12 @@ public static class FutariPatch
     [HarmonyPatch(typeof(SocketBase), "sendClass", typeof(ICommandParam))]
     private static bool sendClass(SocketBase __instance, ICommandParam info)
     {
+        // Block AdvocateDelivery
+        if (info is AdvocateDelivery) return false;
+        
         // For logging only, log the actual type of info and the actual type of this class
         Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
-        return true;
+        return RUN_ORIGINAL;
     }
     
     // Patch for error logging
@@ -51,18 +57,8 @@ public static class FutariPatch
     private static bool error(string message, int no)
     {
         Log.Error($"Error: {message} ({no})");
-        return true;
+        return RUN_ORIGINAL;
     }
-    
-    // Patch to always enable send
-    // SocketBase:: public static bool checkSendEnable(NFSocket socket)
-    // [HarmonyPrefix]
-    // [HarmonyPatch(typeof(SocketBase), "checkSendEnable", typeof(NFSocket))]
-    // private static bool checkSendEnable(NFSocket socket, ref bool __result)
-    // {
-    //     __result = true;
-    //     return false;
-    // }
     
     // Other patches not in NFSocket
     // public static IPAddress MyIpAddress(int mockID)
@@ -71,7 +67,7 @@ public static class FutariPatch
     private static bool MyIpAddress(int mockID, ref IPAddress __result)
     {
         __result = new IPAddress(FutariExt.MyStubIP());
-        return false;
+        return BLOCK_ORIGINAL;
     }
     
     // public static uint ToNetworkByteOrderU32(this IPAddress ip)
@@ -80,7 +76,7 @@ public static class FutariPatch
     private static bool ToNetworkByteOrderU32(this IPAddress ip, ref uint __result)
     {
         __result = BitConverter.ToUInt32(ip.GetAddressBytes(), 0);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     //Skip DeliveryChecker
@@ -97,7 +93,7 @@ public static class FutariPatch
     [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
     private static bool CheckAuth_Proc()
     {
-        if (isInit) return true;
+        if (isInit) return RUN_ORIGINAL;
         Log.Info("CheckAuth_Proc");
         
         var keychip = AMDaemon.System.KeychipId.ShortValue;
@@ -114,7 +110,7 @@ public static class FutariPatch
         client.ConnectAsync();
 
         isInit = true;
-        return true; // Allow the original method to run
+        return RUN_ORIGINAL;
     }
 
     #region NFSocket
@@ -140,7 +136,7 @@ public static class FutariPatch
     private static bool NFPoll(NFSocket socket, SelectMode mode, ref bool __result)
     {
         __result = FutariSocket.Poll(redirect[socket], mode);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -149,7 +145,7 @@ public static class FutariPatch
     {
         Log.Debug("NFSend");
         __result = redirect[__instance].Send(buffer, offset, size, socketFlags);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -158,7 +154,7 @@ public static class FutariPatch
     {
         Log.Debug("NFSendTo");
         __result = redirect[__instance].SendTo(buffer, offset, size, socketFlags, remoteEP);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -167,7 +163,7 @@ public static class FutariPatch
     {
         Log.Debug("NFReceive");
         __result = redirect[__instance].Receive(buffer, offset, size, socketFlags, out errorCode);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -176,7 +172,7 @@ public static class FutariPatch
     {
         Log.Debug("NFReceiveFrom");
         __result = redirect[__instance].ReceiveFrom(buffer, socketFlags, ref remoteEP);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -185,7 +181,7 @@ public static class FutariPatch
     {
         Log.Debug("NFBind");
         redirect[__instance].Bind(localEndP);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -194,7 +190,7 @@ public static class FutariPatch
     {
         Log.Debug("NFListen");
         redirect[__instance].Listen(backlog);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -206,7 +202,7 @@ public static class FutariPatch
         var mockSocket = new NFSocket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp, 0);
         redirect.Add(mockSocket, futariSocket);
         __result = mockSocket;
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -215,7 +211,7 @@ public static class FutariPatch
     {
         Log.Debug("NFConnectAsync");
         __result = redirect[__instance].ConnectAsync(e, mockID);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -224,7 +220,7 @@ public static class FutariPatch
     {
         Log.Debug("NFSetSocketOption");
         redirect[__instance].SetSocketOption(optionLevel, optionName, optionValue);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -233,7 +229,7 @@ public static class FutariPatch
     {
         Log.Debug("NFClose");
         redirect[__instance].Close();
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -242,7 +238,7 @@ public static class FutariPatch
     {
         Log.Debug("NFShutdown");
         redirect[__instance].Shutdown(how);
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -251,7 +247,7 @@ public static class FutariPatch
     {
         Log.Debug("NFGetRemoteEndPoint");
         __result = redirect[__instance].RemoteEndPoint;
-        return false;
+        return BLOCK_ORIGINAL;
     }
 
     [HarmonyPrefix]
@@ -260,7 +256,7 @@ public static class FutariPatch
     {
         Log.Debug("NFGetLocalEndPoint");
         __result = redirect[__instance].LocalEndPoint;
-        return false;
+        return BLOCK_ORIGINAL;
     }
     #endregion
 
@@ -274,7 +270,7 @@ public static class FutariPatch
         Array.Copy(____plane.GetBuffer(), 0, ____encrypt.GetBuffer(), 0, ____plane.Count);
         ____encrypt.ChangeCount(____plane.Count);
         packet_writeunit.Invoke(null, [____plane, 0, (uint)____plane.Count]);
-        return true;
+        return BLOCK_ORIGINAL;
     }
     
     // Disable decryption
@@ -286,7 +282,7 @@ public static class FutariPatch
         Array.Copy(____encrypt.GetBuffer(), 0, ____plane.GetBuffer(), 0, ____encrypt.Count);
         ____plane.ChangeCount(____encrypt.Count);
         packet_writeunit.Invoke(null, [____plane, 0, (uint)____plane.Count]);
-        return true;
+        return BLOCK_ORIGINAL;
     }
     #endregion
 }
