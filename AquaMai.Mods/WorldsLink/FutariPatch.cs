@@ -82,6 +82,15 @@ public static class FutariPatch
         return false;
     }
 
+    //Skip DeliveryChecker
+    [HarmonyPostfix]
+    [HarmonyPatch("PartyLink.DeliveryChecker+Manager", "isOk")]
+    private static void DeliveryCheckerIsOk(ref bool __result)
+    {
+        MelonLogger.Msg("DeliveryCheckerIsOk:true");
+        __result = true;
+    }
+
     // private void CheckAuth_Proc()
     [HarmonyPrefix]
     [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
