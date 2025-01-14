@@ -18,6 +18,7 @@ public static class FutariPatch
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
     private static FutariClient client;
+    private static bool isInit=false;
 
     public static void OnBeforePatch()
     {
@@ -49,6 +50,7 @@ public static class FutariPatch
     [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
     private static bool CheckAuth_Proc()
     {
+        if (isInit) return true;
         Log.Info("CheckAuth_Proc");
         
         var keychip = AMDaemon.System.KeychipId.ShortValue;
@@ -63,7 +65,8 @@ public static class FutariPatch
         }
         client.keychip = keychip;
         client.ConnectAsync();
-        
+
+        isInit = true;
         return true; // Allow the original method to run
     }
     
