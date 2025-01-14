@@ -95,24 +95,23 @@ public abstract class Log
     
     public static void Error(string msg)
     {
-        MelonLogger.Error(RED + "[FUTARI] ERROR " + msg + RESET);
+        MelonLogger.Error($"[FUTARI] {RED}ERROR {RESET}{msg}{RESET}");
     }
     
     public static void Warn(string msg)
     {
-        MelonLogger.Warning(YELLOW + "[FUTARI] WARN  " + msg + RESET);
+        MelonLogger.Warning($"[FUTARI] {YELLOW}WARN  {RESET}{msg}{RESET}");
     }
 
     public static void Debug(string msg)
     {
-        MelonLogger.Msg(BLUE + "[FUTARI] DEBUG " + msg + RESET);
+        MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg}{RESET}");
     }
 
     public static void Info(string msg)
     {
         if (msg.StartsWith("A001")) msg = MAGENTA + msg;
         if (msg.StartsWith("A002")) msg = CYAN + msg;
-        msg = msg.Replace("Error", RED + "Error");
-        MelonLogger.Msg("[FUTARI] INFO  " + msg + RESET);
+        MelonLogger.Msg($"[FUTARI] {GREEN}INFO  {RESET}{msg}{RESET}");
     }
 }
