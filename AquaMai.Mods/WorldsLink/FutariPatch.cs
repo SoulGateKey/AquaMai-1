@@ -2,12 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using AquaMai.Config.Attributes;
 using HarmonyLib;
 using MelonLoader;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
 
+[ConfigSection(
+    en: "Enable WorldsLink Multiplayer",
+    zh: "启用 WorldsLink 多人游戏",
+    defaultOn: true)]
 public static class FutariPatch
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
@@ -19,10 +24,10 @@ public static class FutariPatch
     
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NFSocket), MethodType.Constructor, typeof(AddressFamily), typeof(SocketType), typeof(ProtocolType), typeof(int))]
-    private static void NFCreate(NFSocket __instance, AddressFamily a1, SocketType a2, ProtocolType a3, int a4)
+    private static void NFCreate(NFSocket __instance, AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, int mockID)
     {
         Log.Debug("new NFSocket(AddressFamily, SocketType, ProtocolType, int)");
-        var futari = new FutariSocket(a1, a2, a3, a4);
+        var futari = new FutariSocket(addressFamily, socketType, protocolType, mockID);
         redirect.Add(__instance, futari);
     }
     
