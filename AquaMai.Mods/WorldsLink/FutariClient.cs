@@ -8,11 +8,15 @@ using System.Threading;
 
 namespace AquaMai.Mods.WorldsLink;
 
-public class FutariClient
+public class FutariClient(string keychip, string host, int port, int _)
 {
     public static FutariClient Instance { get; set; }
-    
-    private readonly string _keychip;
+
+    public FutariClient(string keychip, string host, int port) : this(keychip, host, port, 0)
+    {
+        Instance = this;
+    }
+
     private TcpClient _tcpClient;
     private StreamWriter _writer;
     private StreamReader _reader;
@@ -27,16 +31,14 @@ public class FutariClient
 
     private Thread _sendThread;
     private Thread _recvThread;
+     
+    private bool _reconnecting = false;
     
-    public IPAddress StubIP => new IPAddress(FutariExt.KeychipToStubIp(_keychip));
+    public IPAddress StubIP => new IPAddress(FutariExt.KeychipToStubIp(keychip));
+    
+    public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
 
-    public FutariClient(string keychip)
-    {
-        _keychip = keychip;
-        Instance = this;
-    }
-
-    public void Connect(string host, int port)
+    public void Connect()
     {
         _tcpClient = new TcpClient();
         _tcpClient.Connect(host, port);
@@ -44,9 +46,10 @@ public class FutariClient
         var networkStream = _tcpClient.GetStream();
         _writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true };
         _reader = new StreamReader(networkStream, Encoding.UTF8);
+        _reconnecting = false;
 
         // Register
-        Send(new Msg { cmd = Cmd.CTL_START, data = _keychip });
+        Send(new Msg { cmd = Cmd.CTL_START, data = keychip });
         Log.Info($"Connected to server at {host}:{port}");
 
         // Start communication and message receiving in separate threads
@@ -63,6 +66,30 @@ public class FutariClient
             acceptQ.TryAdd(port, new ConcurrentQueue<Msg>());
         else if (proto == ProtocolType.Udp)
             udpRecvQ.TryAdd(port, new ConcurrentQueue<Msg>());
+    }
+
+    private void Reconnect()
+    {
+        Log.Warn("Reconnect Entered");
+        if (_reconnecting) return;
+        _reconnecting = true;
+        
+        try { _tcpClient.Close(); }
+        catch { /* ignored */ }
+
+        try { _sendThread.Abort(); }
+        catch { /* ignored */ }
+        
+        try { _recvThread.Abort(); }
+        catch { /* ignored */ }
+        
+        _sendThread = null;
+        _recvThread = null;
+        _tcpClient = null;
+        
+        // Reconnect
+        Log.Warn("Reconnecting...");
+        ConnectAsync();
     }
 
     private void SendThread()
@@ -88,9 +115,13 @@ public class FutariClient
         }
         catch (Exception ex)
         {
-            Log.Info($"Error during communication: {ex.Message}");
+            Log.Error($"Error during communication: {ex.Message}");
         }
-        finally { _tcpClient.Close(); }
+        finally
+        {
+            Log.Error("SendThread finally reached");
+            Reconnect();
+        }
     }
 
     private void RecvThread()
@@ -108,14 +139,18 @@ public class FutariClient
         }
         catch (Exception ex)
         {
-            Log.Info($"Error receiving messages: {ex.Message}");
+            Log.Error($"Error receiving messages: {ex.Message}");
         }
-        finally { _tcpClient.Close(); }
+        finally
+        {
+            Log.Error("RecvThread finally reached");
+            Reconnect();
+        }
     }
 
     private void HandleIncomingMessage(Msg msg)
     {
-        Log.Info($"{_keychip} <<< {msg}");
+        Log.Info($"{keychip} <<< {msg}");
 
         switch (msg.cmd)
         {
@@ -139,6 +174,6 @@ public class FutariClient
     private void Send(Msg msg)
     {
         _writer.WriteLine(msg);
-        Log.Info($"{_keychip} >>> {msg}");
+        Log.Info($"{keychip} >>> {msg}");
     }
 }

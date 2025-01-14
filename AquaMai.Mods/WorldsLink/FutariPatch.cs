@@ -17,9 +17,20 @@ public static class FutariPatch
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
 
-    static FutariPatch()
+    public static void OnBeforePatch()
     {
-        new FutariClient(AMDaemon.System.KeychipId.ShortValue).Connect("violet", 20101);
+        Log.Info("Starting WorldsLink patch...");
+        var keychip = AMDaemon.System.KeychipId.ShortValue;
+        Log.Info($"Keychip ID: {keychip}");
+        if (string.IsNullOrEmpty(keychip))
+        {
+            Log.Error("Keychip ID is empty. WorldsLink will not work.");
+            // return;
+            
+            // For testing: Create a random keychip (10-digit number)
+            keychip = "A" + new Random().Next(1000000000, int.MaxValue);
+        }
+        new FutariClient(keychip, "violet", 20101).ConnectAsync();
     }
     
     [HarmonyPostfix]
@@ -43,7 +54,8 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "Poll")]
     private static bool NFPoll(NFSocket socket, SelectMode mode, ref bool __result)
     {
-        Log.Debug("NFPoll");
+        // Let's not log this, there's too many of them
+        // Log.Debug("NFPoll");
         FutariSocket.Poll(redirect[socket], mode);
         return false;
     }

@@ -50,7 +50,6 @@ public class FutariSocket
     // This is the Select step called before blocking calls (e.g. Accept)
     public static bool Poll(FutariSocket socket, SelectMode mode)
     {
-        Log.Debug("Poll called");
         if (mode == SelectMode.SelectRead)
         {
             return (socket._proto == ProtocolType.Udp)  // Check is UDP
