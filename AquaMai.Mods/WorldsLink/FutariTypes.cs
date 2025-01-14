@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Net.Sockets;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -19,16 +21,50 @@ public enum Cmd
 }
 
 
-public class Msg
+public struct Msg
 {
-    public Cmd cmd { get; set; }
-    public ProtocolType? proto { get; set; }
-    public int? sid { get; set; }
-    public uint? src { get; set; }
-    public int? sPort { get; set; }
-    public uint? dst { get; set; }
-    public int? dPort { get; set; }
-    public object? data { get; set; }
+    public Cmd cmd;
+    public ProtocolType? proto;
+    public int? sid;
+    public uint? src;
+    public int? sPort;
+    public uint? dst;
+    public int? dPort;
+    public string? data;
+
+    public override string ToString()
+    {
+        int? proto_ = proto == null ? null : (int) proto;
+        var arr = new object[] {
+            1, (int) cmd, proto_, sid, src, sPort, dst, dPort, 
+            null, null, null, null, null, null, null, null,  // reserved for future use
+            data
+        };
+        
+        // Map nulls to empty strings
+        return string.Join(",", arr.Select(x => x ?? "")).TrimEnd(',');
+    }
+    
+    private static T? Parse<T>(string[] fields, int i) where T : struct 
+        => fields.Length <= i || fields[i] == "" ? null
+            : (T) Convert.ChangeType(fields[i], typeof(T));
+    
+
+    public static Msg FromString(string str)
+    {
+        var fields = str.Split(',');
+        return new Msg
+        {
+            cmd = (Cmd) (Parse<int>(fields, 1) ?? throw new InvalidOperationException("cmd is required")),
+            proto = Parse<int>(fields, 2)?.Let(it => (ProtocolType) it),
+            sid = Parse<int>(fields, 3),
+            src = Parse<uint>(fields, 4),
+            sPort = Parse<int>(fields, 5),
+            dst = Parse<uint>(fields, 6),
+            dPort = Parse<int>(fields, 7),
+            data = string.Join(",", fields.Skip(16))
+        };
+    }
 }
 
 public abstract class Log

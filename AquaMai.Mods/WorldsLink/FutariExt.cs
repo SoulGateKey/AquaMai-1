@@ -11,6 +11,8 @@ public static class FutariExt
     {
         return uint.Parse("1" + keychip.Substring(2));
     }
+    
+    public static R Let<T, R>(this T x, Func<T, R> f) => f(x);
 
     public static byte[] View(this byte[] buffer, int offset, int size)
     {
@@ -18,6 +20,9 @@ public static class FutariExt
         Array.Copy(buffer, offset, array, 0, size);
         return array;
     }
+    
+    public static string B64(this byte[] buffer) => Convert.ToBase64String(buffer);
+    public static byte[] B64(this string str) => Convert.FromBase64String(str);
     
     public static V? Get<K, V>(this ConcurrentDictionary<K, V> dict, K key) where V : class
     {

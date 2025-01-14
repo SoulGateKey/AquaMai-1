@@ -128,7 +128,7 @@ public class NFSocket
         // there can only be one remote endpoint
         _client.sendQ.Enqueue(new Msg
         {
-            cmd = Cmd.DATA_SEND, proto = _proto, data = buffer.View(offset, size),
+            cmd = Cmd.DATA_SEND, proto = _proto, data = buffer.View(offset, size).B64(),
             sid = _streamId == -1 ? null : _streamId
         });
         return size;
@@ -141,7 +141,7 @@ public class NFSocket
         if (remoteEP is not IPEndPoint ipEndP) return 0;
         _client.sendQ.Enqueue(new Msg
         {
-            cmd = Cmd.DATA_BROADCAST, proto = _proto, data = buffer.View(offset, size), dPort = ipEndP.Port
+            cmd = Cmd.DATA_BROADCAST, proto = _proto, data = buffer.View(offset, size).B64(), dPort = ipEndP.Port
         });
         return size;
     }
@@ -157,7 +157,7 @@ public class NFSocket
             errorCode = SocketError.WouldBlock;
             return 0;
         }
-        var data = Convert.FromBase64String((string) msg.data!);
+        var data = msg.data!.B64();
 
         Buffer.BlockCopy(data, 0, buffer, 0, data.Length);
         errorCode = SocketError.Success;
@@ -174,7 +174,7 @@ public class NFSocket
             Log.Warn("ReceiveFrom: No data to receive");
             return 0;
         }
-        var data = Convert.FromBase64String((string) msg.data!);
+        var data = msg.data!.B64();
 
         Buffer.BlockCopy(data, 0, buffer, 0, data.Length);
         return data.Length;
