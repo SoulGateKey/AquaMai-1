@@ -43,8 +43,16 @@ public class FutariClient(string keychip, string host, int port, int _)
     public void Connect()
     {
         _tcpClient = new TcpClient();
-        _tcpClient.Connect(host, port);
 
+        try
+        {
+            _tcpClient.Connect(host, port);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Error connecting to server:\nHost:{host}:{port}\n{ex.Message}");
+            return;
+        }
         var networkStream = _tcpClient.GetStream();
         _writer = new StreamWriter(networkStream, Encoding.UTF8) { AutoFlush = true };
         _reader = new StreamReader(networkStream, Encoding.UTF8);
