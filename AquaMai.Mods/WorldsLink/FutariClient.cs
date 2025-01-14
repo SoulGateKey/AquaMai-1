@@ -17,6 +17,8 @@ public class FutariClient(string keychip, string host, int port, int _)
         Instance = this;
     }
 
+    public string keychip { get; set; } = keychip;
+
     private TcpClient _tcpClient;
     private StreamWriter _writer;
     private StreamReader _reader;

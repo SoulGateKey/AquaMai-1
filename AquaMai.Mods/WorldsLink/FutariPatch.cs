@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using AquaMai.Config.Attributes;
 using HarmonyLib;
+using Manager;
 using MelonLoader;
 using PartyLink;
 
@@ -16,10 +17,40 @@ namespace AquaMai.Mods.WorldsLink;
 public static class FutariPatch
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
+    private static FutariClient client;
 
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
+        client = new FutariClient("A000", "violet", 20101);
+    }
+    
+    // Other patches not in NFSocket
+    // public static IPAddress MyIpAddress(int mockID)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PartyLink.Util), "MyIpAddress", typeof(int))]
+    private static bool MyIpAddress(int mockID, ref IPAddress __result)
+    {
+        __result = new IPAddress(FutariExt.MyStubIP());
+        return false;
+    }
+    
+    // public static uint ToNetworkByteOrderU32(this IPAddress ip)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(PartyLink.Util), "ToNetworkByteOrderU32")]
+    private static bool ToNetworkByteOrderU32(this IPAddress ip, ref uint __result)
+    {
+        __result = BitConverter.ToUInt32(ip.GetAddressBytes(), 0);
+        return false;
+    }
+    
+    // private void CheckAuth_Proc()
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
+    private static bool CheckAuth_Proc()
+    {
+        Log.Info("CheckAuth_Proc");
+        
         var keychip = AMDaemon.System.KeychipId.ShortValue;
         Log.Info($"Keychip ID: {keychip}");
         if (string.IsNullOrEmpty(keychip))
@@ -30,7 +61,10 @@ public static class FutariPatch
             // For testing: Create a random keychip (10-digit number)
             keychip = "A" + new Random().Next(1000000000, int.MaxValue);
         }
-        new FutariClient(keychip, "violet", 20101).ConnectAsync();
+        client.keychip = keychip;
+        client.ConnectAsync();
+        
+        return true; // Allow the original method to run
     }
     
     [HarmonyPostfix]
@@ -54,8 +88,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "Poll")]
     private static bool NFPoll(NFSocket socket, SelectMode mode, ref bool __result)
     {
-        // Let's not log this, there's too many of them
-        // Log.Debug("NFPoll");
         FutariSocket.Poll(redirect[socket], mode);
         return false;
     }
