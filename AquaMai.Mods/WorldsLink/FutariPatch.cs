@@ -26,6 +26,37 @@ public static class FutariPatch
         client = new FutariClient("A000", "violet", 20101);
     }
     
+    // Patch for logging
+    // SocketBase:: public void sendClass(ICommandParam info)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(SocketBase), "sendClass", typeof(ICommandParam))]
+    private static bool sendClass(SocketBase __instance, ICommandParam info)
+    {
+        // For logging only, log the actual type of info and the actual type of this class
+        Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
+        return true;
+    }
+    
+    // Patch for error logging
+    // SocketBase:: protected void error(string message, int no)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(SocketBase), "error", typeof(string), typeof(int))]
+    private static bool error(string message, int no)
+    {
+        Log.Error($"Error: {message} ({no})");
+        return true;
+    }
+    
+    // Patch to always enable send
+    // SocketBase:: public static bool checkSendEnable(NFSocket socket)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(SocketBase), "checkSendEnable", typeof(NFSocket))]
+    private static bool checkSendEnable(NFSocket socket, ref bool __result)
+    {
+        __result = true;
+        return false;
+    }
+    
     // Other patches not in NFSocket
     // public static IPAddress MyIpAddress(int mockID)
     [HarmonyPrefix]
