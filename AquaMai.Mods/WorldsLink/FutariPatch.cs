@@ -6,8 +6,8 @@ using System.Reflection;
 using AquaMai.Config.Attributes;
 using HarmonyLib;
 using Manager;
-using MelonLoader;
 using PartyLink;
+using Process;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -22,17 +22,21 @@ public static class FutariPatch
     private static bool isInit = false;
 
     static MethodBase packet_writeunit;
+    static System.Type StartUpStateType;
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
 
-        packet_writeunit = typeof (Packet).GetMethod("write_uint", BindingFlags.NonPublic | BindingFlags.Static,null,
-            [typeof(PacketType), typeof(int), typeof(uint)],null);
+        packet_writeunit = typeof(Packet).GetMethod("write_uint", BindingFlags.NonPublic | BindingFlags.Static, null,
+            [typeof(PacketType), typeof(int), typeof(uint)], null);
         if (packet_writeunit == null) Log.Error("write_uint not found");
+
+        StartUpStateType = typeof(StartupProcess).GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance).FieldType;
+        if (StartUpStateType == null) Log.Error("StartUpStateType not found");
 
         client = new FutariClient("A000", "70.49.234.104", 20101);
     }
-    
+
     // Patch for logging
     // SocketBase:: public void sendClass(ICommandParam info)
     [HarmonyPrefix]
@@ -43,7 +47,7 @@ public static class FutariPatch
         Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
         return true;
     }
-    
+
     // Patch for error logging
     // SocketBase:: protected void error(string message, int no)
     [HarmonyPrefix]
@@ -53,7 +57,7 @@ public static class FutariPatch
         Log.Error($"Error: {message} ({no})");
         return true;
     }
-    
+
     // Patch to always enable send
     // SocketBase:: public static bool checkSendEnable(NFSocket socket)
     // [HarmonyPrefix]
@@ -63,7 +67,7 @@ public static class FutariPatch
     //     __result = true;
     //     return false;
     // }
-    
+
     // Other patches not in NFSocket
     // public static IPAddress MyIpAddress(int mockID)
     [HarmonyPrefix]
@@ -73,7 +77,7 @@ public static class FutariPatch
         __result = new IPAddress(FutariExt.MyStubIP());
         return false;
     }
-    
+
     // public static uint ToNetworkByteOrderU32(this IPAddress ip)
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PartyLink.Util), "ToNetworkByteOrderU32")]
@@ -83,13 +87,17 @@ public static class FutariPatch
         return false;
     }
 
-    //Skip DeliveryChecker
+    //Skip StartupNetworkChecker
     [HarmonyPostfix]
-    [HarmonyPatch("PartyLink.DeliveryChecker+Manager", "isOk")]
-    private static void DeliveryCheckerIsOk(ref bool __result)
+    [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
+    private static void SkipStartupNetworkCheck(ref byte ____state)
     {
-        MelonLogger.Msg("DeliveryCheckerIsOk:true");
-        __result = true;
+        //Log.Info("StartupProcess E:"+ Enum.GetName(StartUpStateType,____state));
+        if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
+        {
+            ____state = 0x08;//StartupProcess.StartUpState.Ready
+            Log.Info("Skip Startup Network Check");
+        }
     }
 
     // private void CheckAuth_Proc()
@@ -99,14 +107,14 @@ public static class FutariPatch
     {
         if (isInit) return true;
         Log.Info("CheckAuth_Proc");
-        
+
         var keychip = AMDaemon.System.KeychipId.ShortValue;
         Log.Info($"Keychip ID: {keychip}");
         if (string.IsNullOrEmpty(keychip))
         {
             Log.Error("Keychip ID is empty. WorldsLink will not work.");
             // return;
-            
+
             // For testing: Create a random keychip (10-digit number)
             keychip = "A" + new Random().Next(1000000000, int.MaxValue);
         }
@@ -276,7 +284,7 @@ public static class FutariPatch
         packet_writeunit.Invoke(null, [____plane, 0, (uint)____plane.Count]);
         return true;
     }
-    
+
     // Disable decryption
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Packet), "decode")]
