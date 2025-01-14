@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Sockets;
+using MelonLoader;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -92,21 +93,26 @@ public abstract class Log
     // Reset
     private const string RESET = "\u001b[0m";
     
+    public static void Error(string msg)
+    {
+        MelonLogger.Error(RED + "[FUTARI] ERROR " + msg + RESET);
+    }
+    
     public static void Warn(string msg)
     {
-        System.Console.WriteLine(YELLOW + "WARN " + msg + RESET);
+        MelonLogger.Warning(YELLOW + "[FUTARI] WARN  " + msg + RESET);
     }
 
     public static void Debug(string msg)
     {
-        System.Console.WriteLine(BLUE + "DEBUG " + msg + RESET);
+        MelonLogger.Msg(BLUE + "[FUTARI] DEBUG " + msg + RESET);
     }
 
-    public static void WriteLine(string msg)
+    public static void Info(string msg)
     {
         if (msg.StartsWith("A001")) msg = MAGENTA + msg;
         if (msg.StartsWith("A002")) msg = CYAN + msg;
         msg = msg.Replace("Error", RED + "Error");
-        System.Console.WriteLine(msg + RESET);
+        MelonLogger.Msg("[FUTARI] INFO  " + msg + RESET);
     }
 }
