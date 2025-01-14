@@ -47,7 +47,7 @@ public class FutariClient
 
         // Register
         Send(new Msg { cmd = Cmd.CTL_START, data = _keychip });
-        Log.WriteLine($"Connected to server at {host}:{port}");
+        Log.Info($"Connected to server at {host}:{port}");
 
         // Start communication and message receiving in separate threads
         _sendThread = new Thread(SendThread) { IsBackground = true };
@@ -88,7 +88,7 @@ public class FutariClient
         }
         catch (Exception ex)
         {
-            Log.WriteLine($"Error during communication: {ex.Message}");
+            Log.Info($"Error during communication: {ex.Message}");
         }
         finally { _tcpClient.Close(); }
     }
@@ -108,14 +108,14 @@ public class FutariClient
         }
         catch (Exception ex)
         {
-            Log.WriteLine($"Error receiving messages: {ex.Message}");
+            Log.Info($"Error receiving messages: {ex.Message}");
         }
         finally { _tcpClient.Close(); }
     }
 
     private void HandleIncomingMessage(Msg msg)
     {
-        Log.WriteLine($"{_keychip} <<< {msg}");
+        Log.Info($"{_keychip} <<< {msg}");
 
         switch (msg.cmd)
         {
@@ -139,6 +139,6 @@ public class FutariClient
     private void Send(Msg msg)
     {
         _writer.WriteLine(msg);
-        Log.WriteLine($"{_keychip} >>> {msg}");
+        Log.Info($"{_keychip} >>> {msg}");
     }
 }

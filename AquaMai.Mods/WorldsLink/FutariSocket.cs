@@ -6,7 +6,7 @@ using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
 
-public class NFSocket
+public class FutariSocket
 {
     private int _bindPort = -1;
     private readonly FutariClient _client;
@@ -20,23 +20,18 @@ public class NFSocket
     // Each client's remote endpoint must be different
     public EndPoint RemoteEndPoint { get; private set; } = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 0);
 
-    public NFSocket(FutariClient client, ProtocolType proto)
+    public FutariSocket(FutariClient client, ProtocolType proto)
     {
         _client = client;
         _proto = proto;
     }
 
     // Compatibility constructor
-    public NFSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, int mockID) :
-        this(FutariClient.Instance!, protocolType)
-    {
-    }
+    public FutariSocket(AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, int mockID) :
+        this(FutariClient.Instance, protocolType) { }
 
     // ListenSocket.open (TCP)
-    public void Listen(int backlog)
-    {
-        /* Do nothing */
-    }
+    public void Listen(int backlog) { }
 
     // ListenSocket.open, UdpRecvSocket.open
     public void Bind(EndPoint localEndP)
@@ -49,14 +44,11 @@ public class NFSocket
     }
 
     // Only used in BroadcastSocket
-    public void SetSocketOption(SocketOptionLevel l, SocketOptionName n, bool o)
-    {
-        /* Do nothing */
-    }
+    public void SetSocketOption(SocketOptionLevel l, SocketOptionName n, bool o) { }
 
     // SocketBase.checkRecvEnable, checkSendEnable
     // This is the Select step called before blocking calls (e.g. Accept)
-    public static bool Poll(NFSocket socket, SelectMode mode)
+    public static bool Poll(FutariSocket socket, SelectMode mode)
     {
         Log.Debug("Poll called");
         if (mode == SelectMode.SelectRead)
@@ -95,7 +87,7 @@ public class NFSocket
     }
 
     // Accept is blocking
-    public NFSocket Accept()
+    public FutariSocket Accept()
     {
         // Check if accept queue has any pending connections
         if (!_client.acceptQ.TryGetValue(_bindPort, out var q) ||
@@ -113,7 +105,7 @@ public class NFSocket
             cmd = Cmd.CTL_TCP_ACCEPT, proto = _proto, sid = msg.sid, dst = msg.src
         });
         
-        return new NFSocket(_client, _proto)
+        return new FutariSocket(_client, _proto)
         {
             _streamId = msg.sid.Value,
             RemoteEndPoint = new IPEndPoint(new IPAddress(new IpAddress(msg.src.Value).GetAddressBytes()), 
@@ -188,8 +180,5 @@ public class NFSocket
             _client.sendQ.Enqueue(new Msg { cmd = Cmd.CTL_TCP_CLOSE, proto = _proto });
     }
 
-    public void Shutdown(SocketShutdown how)
-    {
-        Close();
-    }
+    public void Shutdown(SocketShutdown how) => Close();
 }
