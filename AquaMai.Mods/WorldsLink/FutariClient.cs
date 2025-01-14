@@ -11,10 +11,6 @@ namespace AquaMai.Mods.WorldsLink;
 public class FutariClient
 {
     public static FutariClient Instance { get; set; }
-    private static readonly JsonSerializerSettings settings = new() 
-    {
-        NullValueHandling = NullValueHandling.Ignore
-    };
     
     private readonly string _keychip;
     private TcpClient _tcpClient;
@@ -106,8 +102,7 @@ public class FutariClient
                 var line = _reader.ReadLine();
                 if (line == null) break;
 
-                var message = JsonConvert.DeserializeObject<Msg>(line);
-                if (message == null) continue;
+                var message = Msg.FromString(line);
                 HandleIncomingMessage(message);
             }
         }
@@ -120,7 +115,7 @@ public class FutariClient
 
     private void HandleIncomingMessage(Msg msg)
     {
-        Log.WriteLine($"{_keychip} <<< {JsonConvert.SerializeObject(msg, settings)}");
+        Log.WriteLine($"{_keychip} <<< {msg}");
 
         switch (msg.cmd)
         {
@@ -143,8 +138,7 @@ public class FutariClient
 
     private void Send(Msg msg)
     {
-        var json = JsonConvert.SerializeObject(msg, settings);
-        _writer.WriteLine(json);
-        Log.WriteLine($"{_keychip} >>> {json}");
+        _writer.WriteLine(msg);
+        Log.WriteLine($"{_keychip} >>> {msg}");
     }
 }
