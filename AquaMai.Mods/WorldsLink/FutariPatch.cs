@@ -275,8 +275,8 @@ public static class FutariPatch
     
     // Disable decryption
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(Packet), "decode")]
-    private static bool PacketDecode(Packet __instance, BufferType buffer, IpAddress address, PacketType ____encrypt, PacketType ____plane)
+    [HarmonyPatch(typeof(Packet), "decrypt")]
+    private static bool PacketDecrypt(Packet __instance, PacketType ____encrypt, PacketType ____plane)
     {
         ____plane.ClearAndResize(____encrypt.Count);
         Array.Copy(____encrypt.GetBuffer(), 0, ____plane.GetBuffer(), 0, ____encrypt.Count);
