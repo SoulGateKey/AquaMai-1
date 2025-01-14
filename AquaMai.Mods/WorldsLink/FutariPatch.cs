@@ -19,15 +19,16 @@ public static class FutariPatch
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
     private static FutariClient client;
-    private static bool isInit=false;
+    private static bool isInit = false;
 
     static MethodBase packet_writeunit;
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
 
-        packet_writeunit = typeof(Packet).GetMethod("write_uint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static,null, new System.Type[] { typeof(PacketType), typeof(int), typeof(uint)},null);
-        if(packet_writeunit==null)Log.Error("write_uint not found");
+        packet_writeunit = typeof (Packet).GetMethod("write_uint", BindingFlags.NonPublic | BindingFlags.Static,null,
+            [typeof(PacketType), typeof(int), typeof(uint)],null);
+        if (packet_writeunit == null) Log.Error("write_uint not found");
 
         client = new FutariClient("A000", "70.49.234.104", 20101);
     }
@@ -55,13 +56,13 @@ public static class FutariPatch
     
     // Patch to always enable send
     // SocketBase:: public static bool checkSendEnable(NFSocket socket)
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(SocketBase), "checkSendEnable", typeof(NFSocket))]
-    private static bool checkSendEnable(NFSocket socket, ref bool __result)
-    {
-        __result = true;
-        return false;
-    }
+    // [HarmonyPrefix]
+    // [HarmonyPatch(typeof(SocketBase), "checkSendEnable", typeof(NFSocket))]
+    // private static bool checkSendEnable(NFSocket socket, ref bool __result)
+    // {
+    //     __result = true;
+    //     return false;
+    // }
     
     // Other patches not in NFSocket
     // public static IPAddress MyIpAddress(int mockID)
@@ -115,6 +116,7 @@ public static class FutariPatch
         isInit = true;
         return true; // Allow the original method to run
     }
+
     #region NFSocket
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NFSocket), MethodType.Constructor, typeof(AddressFamily), typeof(SocketType), typeof(ProtocolType), typeof(int))]
@@ -137,43 +139,43 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "Poll")]
     private static bool NFPoll(NFSocket socket, SelectMode mode, ref bool __result)
     {
-        FutariSocket.Poll(redirect[socket], mode);
+        __result = FutariSocket.Poll(redirect[socket], mode);
         return false;
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "Send")]
-    private static bool NFSend(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags)
+    private static bool NFSend(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, ref int __result)
     {
         Log.Debug("NFSend");
-        redirect[__instance].Send(buffer, offset, size, socketFlags);
+        __result = redirect[__instance].Send(buffer, offset, size, socketFlags);
         return false;
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "SendTo")]
-    private static bool NFSendTo(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP)
+    private static bool NFSendTo(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP, ref int __result)
     {
         Log.Debug("NFSendTo");
-        redirect[__instance].SendTo(buffer, offset, size, socketFlags, remoteEP);
+        __result = redirect[__instance].SendTo(buffer, offset, size, socketFlags, remoteEP);
         return false;
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "Receive")]
-    private static bool NFReceive(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode)
+    private static bool NFReceive(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode, ref int __result)
     {
         Log.Debug("NFReceive");
-        redirect[__instance].Receive(buffer, offset, size, socketFlags, out errorCode);
+        __result = redirect[__instance].Receive(buffer, offset, size, socketFlags, out errorCode);
         return false;
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "ReceiveFrom")]
-    private static bool NFReceiveFrom(NFSocket __instance, byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP)
+    private static bool NFReceiveFrom(NFSocket __instance, byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP, ref int __result)
     {
         Log.Debug("NFReceiveFrom");
-        redirect[__instance].ReceiveFrom(buffer, socketFlags, ref remoteEP);
+        __result = redirect[__instance].ReceiveFrom(buffer, socketFlags, ref remoteEP);
         return false;
     }
 
@@ -203,15 +205,16 @@ public static class FutariPatch
         var futariSocket = redirect[__instance].Accept();
         var mockSocket = new NFSocket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp, 0);
         redirect.Add(mockSocket, futariSocket);
+        __result = mockSocket;
         return false;
     }
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "ConnectAsync")]
-    private static bool NFConnectAsync(NFSocket __instance, SocketAsyncEventArgs e, int mockID)
+    private static bool NFConnectAsync(NFSocket __instance, SocketAsyncEventArgs e, int mockID, ref bool __result)
     {
         Log.Debug("NFConnectAsync");
-        redirect[__instance].ConnectAsync(e, mockID);
+        __result = redirect[__instance].ConnectAsync(e, mockID);
         return false;
     }
 
@@ -260,7 +263,9 @@ public static class FutariPatch
         return false;
     }
     #endregion
+
     #region Packet
+    // Disable encryption
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Packet), "encrypt")]
     private static bool PacketEncrypt(Packet __instance, PacketType ____encrypt, PacketType ____plane)
@@ -268,9 +273,11 @@ public static class FutariPatch
         ____encrypt.ClearAndResize(____plane.Count);
         Array.Copy(____plane.GetBuffer(), 0, ____encrypt.GetBuffer(), 0, ____plane.Count);
         ____encrypt.ChangeCount(____plane.Count);
-        packet_writeunit.Invoke(null, new object[] { ____plane, 0, (uint)____plane.Count });
+        packet_writeunit.Invoke(null, [____plane, 0, (uint)____plane.Count]);
         return true;
     }
+    
+    // Disable decryption
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Packet), "decode")]
     private static bool PacketDecode(Packet __instance, BufferType buffer, IpAddress address, PacketType ____encrypt, PacketType ____plane)
@@ -278,7 +285,7 @@ public static class FutariPatch
         ____plane.ClearAndResize(____encrypt.Count);
         Array.Copy(____encrypt.GetBuffer(), 0, ____plane.GetBuffer(), 0, ____encrypt.Count);
         ____plane.ChangeCount(____encrypt.Count);
-        packet_writeunit.Invoke(null, new object[] { ____plane, 0, (uint)____plane.Count });
+        packet_writeunit.Invoke(null, [____plane, 0, (uint)____plane.Count]);
         return true;
     }
     #endregion
