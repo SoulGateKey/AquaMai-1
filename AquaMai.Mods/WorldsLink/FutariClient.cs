@@ -141,7 +141,7 @@ public class FutariClient(string keychip, string host, int port, int _)
             while (true)
             {
                 var line = _reader.ReadLine();
-                if (line == null) break;
+                if (line == null) continue;
 
                 var message = Msg.FromString(line);
                 HandleIncomingMessage(message);
