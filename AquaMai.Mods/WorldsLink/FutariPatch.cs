@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using AquaMai.Config.Attributes;
 using HarmonyLib;
 using Manager;
@@ -20,10 +21,15 @@ public static class FutariPatch
     private static FutariClient client;
     private static bool isInit=false;
 
+    static MethodBase packet_writeunit;
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
-        client = new FutariClient("A000", "violet", 20101);
+
+        packet_writeunit = typeof(Packet).GetMethod("write_uint", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static,null, new System.Type[] { typeof(PacketType), typeof(int), typeof(uint)},null);
+        if(packet_writeunit==null)Log.Error("write_uint not found");
+
+        client = new FutariClient("A000", "70.49.234.104", 20101);
     }
     
     // Patch for logging
@@ -75,7 +81,7 @@ public static class FutariPatch
         __result = BitConverter.ToUInt32(ip.GetAddressBytes(), 0);
         return false;
     }
-    
+
     // private void CheckAuth_Proc()
     [HarmonyPrefix]
     [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
@@ -100,7 +106,7 @@ public static class FutariPatch
         isInit = true;
         return true; // Allow the original method to run
     }
-    
+    #region NFSocket
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NFSocket), MethodType.Constructor, typeof(AddressFamily), typeof(SocketType), typeof(ProtocolType), typeof(int))]
     private static void NFCreate(NFSocket __instance, AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, int mockID)
@@ -109,7 +115,7 @@ public static class FutariPatch
         var futari = new FutariSocket(addressFamily, socketType, protocolType, mockID);
         redirect.Add(__instance, futari);
     }
-    
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NFSocket), MethodType.Constructor, typeof(Socket))]
     private static void NFCreate2(NFSocket __instance, Socket nfSocket)
@@ -117,7 +123,7 @@ public static class FutariPatch
         Log.Warn("new NFSocket(Socket) -- We shouldn't get here.");
         throw new NotImplementedException();
     }
-    
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "Poll")]
     private static bool NFPoll(NFSocket socket, SelectMode mode, ref bool __result)
@@ -125,7 +131,7 @@ public static class FutariPatch
         FutariSocket.Poll(redirect[socket], mode);
         return false;
     }
-    
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "Send")]
     private static bool NFSend(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags)
@@ -134,7 +140,7 @@ public static class FutariPatch
         redirect[__instance].Send(buffer, offset, size, socketFlags);
         return false;
     }
-    
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(NFSocket), "SendTo")]
     private static bool NFSendTo(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP)
@@ -244,4 +250,27 @@ public static class FutariPatch
         __result = redirect[__instance].LocalEndPoint;
         return false;
     }
+    #endregion
+    #region Packet
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Packet), "encrypt")]
+    private static bool PacketEncrypt(Packet __instance, PacketType ____encrypt, PacketType ____plane)
+    {
+        ____encrypt.ClearAndResize(____plane.Count);
+        Array.Copy(____plane.GetBuffer(), 0, ____encrypt.GetBuffer(), 0, ____plane.Count);
+        ____encrypt.ChangeCount(____plane.Count);
+        packet_writeunit.Invoke(null, new object[] { ____plane, 0, (uint)____plane.Count });
+        return true;
+    }
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Packet), "decode")]
+    private static bool PacketDecode(Packet __instance, BufferType buffer, IpAddress address, PacketType ____encrypt, PacketType ____plane)
+    {
+        ____plane.ClearAndResize(____encrypt.Count);
+        Array.Copy(____encrypt.GetBuffer(), 0, ____plane.GetBuffer(), 0, ____encrypt.Count);
+        ____plane.ChangeCount(____encrypt.Count);
+        packet_writeunit.Invoke(null, new object[] { ____plane, 0, (uint)____plane.Count });
+        return true;
+    }
+    #endregion
 }
