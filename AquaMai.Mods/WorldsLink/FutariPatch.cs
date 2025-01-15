@@ -422,6 +422,8 @@ public static class Futari
         SubSequence[] ____currentPlayerSubSequence,
         ref bool __result)
     {
+        __result = false;
+        
         // 修正 SetConnectData 触发条件，阻止原有 IP 判断重新设置
         if (!__instance.IsConnectingMusic && PartyMan.GetRecruitListWithoutMe().Count > 0)
         {
@@ -429,7 +431,6 @@ public static class Futari
             SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
             __result = true;
         }
-        __result = false;
         return PrefixRet.BLOCK_ORIGINAL;
     }
     
