@@ -39,8 +39,7 @@ public class FutariClient(string keychip, string host, int port, int _)
      
     private bool _reconnecting = false;
     
-    public uint StubIPU32 => FutariExt.KeychipToStubIp(keychip);
-    public IPAddress StubIP => StubIPU32.ToIP();
+    public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
     
     public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
 

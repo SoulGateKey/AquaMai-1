@@ -60,7 +60,6 @@ public static class FutariPatch
         if (string.IsNullOrEmpty(keychip))
         {
             Log.Error("Keychip ID is empty. WorldsLink will not work.");
-            // return;
 
             // For testing: Create a random keychip (10-digit number)
             keychip = "A" + new Random().Next(1000000000, int.MaxValue);
@@ -86,7 +85,7 @@ public static class FutariPatch
         if (info is AdvocateDelivery or Setting.SettingHostAddress) return BLOCK_ORIGINAL;
         
         // For logging only, log the actual type of info and the actual type of this class
-        Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
+        Log.Debug($"SendClass: {Log.BRIGHT_RED}{info.GetType().Name}{Log.RESET} from {__instance.GetType().Name}");
         return RUN_ORIGINAL;
     }
     
@@ -122,15 +121,6 @@ public static class FutariPatch
     private static bool MyIpAddress(int mockID, ref IPAddress __result)
     {
         __result = FutariExt.MyStubIP().ToIP();
-        return BLOCK_ORIGINAL;
-    }
-
-    // public static uint ToNetworkByteOrderU32(this IPAddress ip)
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(PartyLink.Util), "ToNetworkByteOrderU32")]
-    private static bool ToNetworkByteOrderU32(this IPAddress ip, ref uint __result)
-    {
-        __result = BitConverter.ToUInt32(ip.GetAddressBytes(), 0);
         return BLOCK_ORIGINAL;
     }
     

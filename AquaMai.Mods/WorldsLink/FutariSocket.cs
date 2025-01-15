@@ -22,7 +22,7 @@ public class FutariSocket
     // Each client's remote endpoint must be different
     public EndPoint RemoteEndPoint { get; private set; }
 
-    public FutariSocket(FutariClient client, ProtocolType proto)
+    private FutariSocket(FutariClient client, ProtocolType proto)
     {
         _client = client;
         _proto = proto;
@@ -43,7 +43,7 @@ public class FutariSocket
         _bindPort = ipEndP.Port;
         _client.Bind(_bindPort, _proto);
         _client.sendQ.Enqueue(new Msg { cmd = Cmd.CTL_BIND, proto = _proto, 
-            src = ipEndP.Address.ToNetworkByteOrderU32(), sPort = ipEndP.Port });
+            src = ipEndP.Address.ToU32(), sPort = ipEndP.Port });
     }
 
     // Only used in BroadcastSocket
@@ -76,10 +76,10 @@ public class FutariSocket
     public bool ConnectAsync(SocketAsyncEventArgs e, int mockID)
     {
         if (e.RemoteEndPoint is not IPEndPoint remote) return false;
-        var addr = remote.Address.ToNetworkByteOrderU32();
+        var addr = remote.Address.ToU32();
 
         // Change Localhost to the local keychip address
-        if (addr is 2130706433 or 16777343) addr = _client.StubIPU32;
+        if (addr is 2130706433 or 16777343) addr = _client.StubIP.ToU32();
         
         // Random stream ID and port
         _streamId = new Random().Next();
@@ -102,10 +102,10 @@ public class FutariSocket
             cmd = Cmd.CTL_TCP_CONNECT, 
             proto = _proto,
             sid = _streamId,
-            src = _client.StubIPU32, sPort = _bindPort,
+            src = _client.StubIP.ToU32(), sPort = _bindPort,
             dst = addr, dPort = remote.Port
         });
-        RemoteEndPoint = new IPEndPoint(addr, remote.Port);
+        RemoteEndPoint = new IPEndPoint(addr.ToIP(), remote.Port);
         return true;
     }
 
@@ -125,7 +125,7 @@ public class FutariSocket
         _client.sendQ.Enqueue(new Msg
         {
             cmd = Cmd.CTL_TCP_ACCEPT, proto = _proto, sid = msg.sid,
-            src = _client.StubIPU32, sPort = _bindPort,
+            src = _client.StubIP.ToU32(), sPort = _bindPort,
             dst = msg.src, dPort = msg.sPort
         });
         
@@ -147,8 +147,8 @@ public class FutariSocket
         {
             cmd = Cmd.DATA_SEND, proto = _proto, data = buffer.View(offset, size).B64(),
             sid = _streamId == -1 ? null : _streamId,
-            src = _client.StubIPU32, sPort = _bindPort,
-            dst = remote.Address.ToNetworkByteOrderU32(), dPort = remote.Port
+            src = _client.StubIP.ToU32(), sPort = _bindPort,
+            dst = remote.Address.ToU32(), dPort = remote.Port
         });
         return size;
     }
@@ -161,8 +161,8 @@ public class FutariSocket
         _client.sendQ.Enqueue(new Msg
         {
             cmd = Cmd.DATA_BROADCAST, proto = _proto, data = buffer.View(offset, size).B64(), 
-            src = _client.StubIPU32, sPort = _bindPort,
-            dst = remote.Address.ToNetworkByteOrderU32(), dPort = remote.Port
+            src = _client.StubIP.ToU32(), sPort = _bindPort,
+            dst = remote.Address.ToU32(), dPort = remote.Port
         });
         return size;
     }
@@ -170,7 +170,6 @@ public class FutariSocket
     // Only used in TCP ConnectSocket
     public int Receive(byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode)
     {
-        Log.Debug("Receive called");
         if (!_client.tcpRecvQ.TryGetValue(_streamId + _bindPort, out var q) || 
             !q.TryDequeue(out var msg))
         {
@@ -179,6 +178,7 @@ public class FutariSocket
             return 0;
         }
         var data = msg.data!.B64();
+        Log.Debug($"Receive: {data.Length} bytes, {q.Count} left in queue");
 
         Buffer.BlockCopy(data, 0, buffer, 0, data.Length);
         errorCode = SocketError.Success;

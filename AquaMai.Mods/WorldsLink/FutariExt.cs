@@ -3,8 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
+using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -15,7 +14,8 @@ public static class FutariExt
         return uint.Parse("1" + keychip.Substring(2));
     }
 
-    public static IPAddress ToIP(this uint ipAsUint) => new(BitConverter.GetBytes(ipAsUint));
+    public static IPAddress ToIP(this uint val) => new(new IpAddress(val).GetAddressBytes());
+    public static uint ToU32(this IPAddress ip) => ip.ToNetworkByteOrderU32();
     
     public static R Let<T, R>(this T x, Func<T, R> f) => f(x);
     public static T Also<T>(this T x, Action<T> f) { f(x); return x; }
