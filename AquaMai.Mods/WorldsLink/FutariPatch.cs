@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -124,46 +125,34 @@ public static class Futari
     [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
     private static void SkipStartupNetworkCheck(ref byte ____state, string[] ____statusMsg, string[] ____statusSubMsg)
     {
-        //Title
+        // Status code
         ____statusMsg[7] = "WORLD LINK";
-        switch (client.StatusCode)
+        ____statusSubMsg[7] = client.StatusCode switch
         {
-            case -1:
-                ____statusSubMsg[7] = "BAD";
-                break;
-            case 0:
-                ____statusSubMsg[7] = "Not Connect";
-                break;
-            case 1:
-                ____statusSubMsg[7] = "Connecting";
-                break;
-            case 2:
-                ____statusSubMsg[7] = "GOOD";
-                break;
+            -1 => "BAD",
+            0 => "Not Connect",
+            1 => "Connecting",
+            2 => "GOOD",
+            _ => "Waiting..."
+        };
 
-            default:
-                ____statusSubMsg[7] = "Waiting...";
-                break;
-        }
-        //Ping
+        // Delay
         ____statusMsg[8] = "PING";
-        ____statusSubMsg[8] = client._delayAvg == 0 ? "N/A" : client._delayAvg.ToString() + "ms";
-        //
-        ____statusMsg[9] = "";
-        ____statusSubMsg[9] = "";
-        //Skip Oragin Init And Manual Init Party
-        if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
-        {
-            ____state = 0x08;//StartupProcess.StartUpState.Ready
-            DeliveryChecker.get().start(true);
-            Setting.Data data = new Setting.Data();
-            data.set(false, 4);
-            Setting.get().setData(data);
-            Setting.get().setRetryEnable(true);
-            Advertise.get().initialize(MachineGroupID.ON);
-            Manager.Party.Party.Party.Get().Start(MachineGroupID.ON);
-            Log.Info("Skip Startup Network Check");
-        }
+        ____statusSubMsg[8] = client._delayAvg == 0 ? "N/A" : $"{client._delayAvg} ms";
+        ____statusMsg[9] = "CAT :3";
+        ____statusSubMsg[9] = "MEOW";
+
+        // If it is in the wait link delivery state, change to ready immediately
+        if (____state != 0x04) return;
+        ____state = 0x08;
+
+        // Start the services that would have been started by the StartupNetworkChecker
+        DeliveryChecker.get().start(true);
+        Setting.get().setData(new Setting.Data().Also(x => x.set(false, 4)));
+        Setting.get().setRetryEnable(true);
+        Advertise.get().initialize(MachineGroupID.ON);
+        Manager.Party.Party.Party.Get().Start(MachineGroupID.ON);
+        Log.Info("Skip Startup Network Check");
     }
 
     #region NFSocket
@@ -337,145 +326,140 @@ public static class Futari
 
     #endregion
     #region Recruit
-    static int musicIDSUM;
+
+    private static int musicIdSum;
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "OnStart")]
     private static bool MusicSelectProcessOnStart(MusicSelectProcess __instance)
     {
         //初始化变量
-        musicIDSUM = 0;
+        musicIdSum = 0;
         return PrefixRet.RUN_ORIGINAL;
     }
+    
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "PartyExec")]
     private static bool PartyExec(MusicSelectProcess __instance)
     {
         //检查联机房间是否有更新.如果更新的话设置IsConnectingMusic=false然后刷新列表
-        int checkDiff = 0;
-        foreach (var item in Manager.Party.Party.Party.Get().GetRecruitListWithoutMe())
+        var checkDiff = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Sum(item => item.MusicID);
+        if (musicIdSum != checkDiff)
         {
-            checkDiff += item.MusicID;
-        }
-        if (musicIDSUM != checkDiff)
-        {
-            musicIDSUM = checkDiff;
+            musicIdSum = checkDiff;
             __instance.IsConnectingMusic = false;
         }
         return PrefixRet.RUN_ORIGINAL;
     }
+    
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MusicSelectProcess), "RecruitData", MethodType.Getter)]
     private static void RecruitDataOverride(MusicSelectProcess __instance, ref RecruitInfo __result)
     {
         //开歌时设置当前选择的联机数据
-        if (__result != null)
-        {
-            var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
-            if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
-                __result = list[__instance.CurrentMusicSelect];
-        }
+        if (__result == null) return;
+        
+        var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
+        if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
+            __result = list[__instance.CurrentMusicSelect];
     }
+    
+    private static readonly MethodInfo SetRecruitData = typeof(MusicSelectProcess).GetProperty("RecruitData")!.SetMethod;
+    
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
     private static bool RecruitDataOverride(MusicSelectProcess __instance,
-        List<MusicSelectProcess.CombineMusicSelectData> ____connectCombineMusicDataList,
-        MusicSelectProcess.SubSequence[] ____currentPlayerSubSequence,
+        List<CombineMusicSelectData> ____connectCombineMusicDataList,
+        SubSequence[] ____currentPlayerSubSequence,
         ref bool __result)
     {
         //修正SetConnectData触发条件.阻止原有IP判断重新设置
         if (!__instance.IsConnectingMusic)
         {
-            typeof(MusicSelectProcess).GetProperty("RecruitData").SetMethod.Invoke(__instance,new object[] { new RecruitInfo()});
+            SetRecruitData.Invoke(__instance, [new RecruitInfo()]);
             SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
             __result = true;
         }
         __result = false;
         return PrefixRet.BLOCK_ORIGINAL;
     }
+    
+    private static readonly MethodInfo SetConnectCategoryEnable = typeof(MusicSelectProcess).GetProperty("IsConnectCategoryEnable")!.SetMethod;
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "SetConnectData")]
-    private static bool SetConnectData(
-        MusicSelectProcess __instance,
-        List<MusicSelectProcess.CombineMusicSelectData> ____connectCombineMusicDataList,
-        MusicSelectProcess.SubSequence[] ____currentPlayerSubSequence
-        )
+    private static bool SetConnectData(MusicSelectProcess __instance,
+        List<CombineMusicSelectData> ____connectCombineMusicDataList,
+        SubSequence[] ____currentPlayerSubSequence)
     {
-        System.Type type = __instance.GetType();
-
         ____connectCombineMusicDataList.Clear();
-        type.GetProperty(nameof(__instance.IsConnectCategoryEnable)).SetMethod.Invoke(__instance, new object[] { false });
-        //遍历所有房间并且显示
+        SetConnectCategoryEnable.Invoke(__instance, [false]);
+
+        // 遍历所有房间并且显示
         foreach (var item in Manager.Party.Party.Party.Get().GetRecruitListWithoutMe())
         {
-            int musicID = item.MusicID;
-            MusicSelectProcess.CombineMusicSelectData combineMusicSelectData = new MusicSelectProcess.CombineMusicSelectData();
-            MusicData music = Singleton<DataManager>.Instance.GetMusic(musicID);
-            List<Notes> notesList = Singleton<NotesListManager>.Instance.GetNotesList()[musicID].NotesList;
+            var musicID = item.MusicID;
+            var combineMusicSelectData = new CombineMusicSelectData();
+            var music = Singleton<DataManager>.Instance.GetMusic(musicID);
+            var notesList = Singleton<NotesListManager>.Instance.GetNotesList()[musicID].NotesList;
 
-            if (musicID < 10000)
+            switch (musicID)
             {
-                combineMusicSelectData.existStandardScore = true;
+                case < 10000:
+                    combineMusicSelectData.existStandardScore = true;
+                    break;
+                case > 10000 and < 20000:
+                    combineMusicSelectData.existDeluxeScore = true;
+                    break;
             }
-            else if (10000 < musicID && musicID < 20000)
+            
+            for (var i = 0; i < 2; i++)
             {
-                combineMusicSelectData.existDeluxeScore = true;
-            }
-            for (int i = 0; i < 2; i++)
-            {
-                combineMusicSelectData.musicSelectData.Add(new MusicSelectProcess.MusicSelectData(music, notesList, 0));
+                combineMusicSelectData.musicSelectData.Add(new MusicSelectData(music, notesList, 0));
             }
             ____connectCombineMusicDataList.Add(combineMusicSelectData);
             try
             {
-                string thumbnailName = music.thumbnailName;
-                for (int j = 0; j < __instance.MonitorArray.Length; j++)
+                var thumbnailName = music.thumbnailName;
+                for (var j = 0; j < __instance.MonitorArray.Length; j++)
                 {
-                    if (__instance.IsEntry(j))
-                    {
-                        __instance.MonitorArray[j].SetRecruitInfo(thumbnailName);
-                        SoundManager.PlaySE(Cue.SE_INFO_NORMAL, j);
-                    }
+                    if (!__instance.IsEntry(j)) continue;
+                    
+                    __instance.MonitorArray[j].SetRecruitInfo(thumbnailName);
+                    SoundManager.PlaySE(Cue.SE_INFO_NORMAL, j);
                 }
             }
-            catch (Exception e)
-            {
-                //防止有可能的空
-            }
+            catch { /* 防止有可能的空 */ }
+            
             __instance.IsConnectingMusic = true;
         }
         if (Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Count == 0)
         {
-            MusicSelectProcess.CombineMusicSelectData combineMusicSelectData2 = new MusicSelectProcess.CombineMusicSelectData();
-            for (int k = 0; k < 2; k++)
+            ____connectCombineMusicDataList.Add(new CombineMusicSelectData
             {
-                combineMusicSelectData2.musicSelectData.Add(null);
-            }
-            combineMusicSelectData2.isWaitConnectScore = true;
-            ____connectCombineMusicDataList.Add(combineMusicSelectData2);
+                musicSelectData = [null, null],
+                isWaitConnectScore = true
+            });
             __instance.IsConnectingMusic = false;
         }
-        if (__instance.MonitorArray != null)
+        
+        if (__instance.MonitorArray == null) return PrefixRet.BLOCK_ORIGINAL;
+        
+        for (var l = 0; l < __instance.MonitorArray.Length; l++)
         {
-            for (int l = 0; l < __instance.MonitorArray.Length; l++)
-            {
-                if (____currentPlayerSubSequence[l] == MusicSelectProcess.SubSequence.Music)
-                {
-                    __instance.MonitorArray[l].SetDeployList(false, false);
-                    if (__instance.IsConnectionFolder(0))
-                    {
-                        __instance.ChangeBGM();
-                        if (__instance.IsEntry(l))
-                        {
-                            __instance.MonitorArray[l].SetVisibleButton(__instance.IsConnectingMusic, InputManager.ButtonSetting.Button04);
-                        }
-                    }
-                }
-            }
+            if (____currentPlayerSubSequence[l] != SubSequence.Music) continue;
+            
+            __instance.MonitorArray[l].SetDeployList(false);
+            if (!__instance.IsConnectionFolder(0)) continue;
+            
+            __instance.ChangeBGM();
+            if (!__instance.IsEntry(l)) continue;
+            
+            __instance.MonitorArray[l].SetVisibleButton(__instance.IsConnectingMusic, InputManager.ButtonSetting.Button04);
         }
         return PrefixRet.BLOCK_ORIGINAL;
     }
     #endregion
+    
     #region Debug
 
     [EnableIf(typeof(Futari), nameof(Debug))]
