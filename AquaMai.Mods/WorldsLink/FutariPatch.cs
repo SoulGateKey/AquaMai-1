@@ -151,7 +151,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "Send")]
     private static bool NFSend(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, ref int __result)
     {
-        Log.Debug("NFSend");
         __result = redirect[__instance].Send(buffer, offset, size, socketFlags);
         return BLOCK_ORIGINAL;
     }
@@ -160,7 +159,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "SendTo")]
     private static bool NFSendTo(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP, ref int __result)
     {
-        Log.Debug("NFSendTo");
         __result = redirect[__instance].SendTo(buffer, offset, size, socketFlags, remoteEP);
         return BLOCK_ORIGINAL;
     }
@@ -169,7 +167,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "Receive")]
     private static bool NFReceive(NFSocket __instance, byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode, ref int __result)
     {
-        Log.Debug("NFReceive");
         __result = redirect[__instance].Receive(buffer, offset, size, socketFlags, out errorCode);
         return BLOCK_ORIGINAL;
     }
@@ -178,7 +175,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "ReceiveFrom")]
     private static bool NFReceiveFrom(NFSocket __instance, byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP, ref int __result)
     {
-        Log.Debug("NFReceiveFrom");
         __result = redirect[__instance].ReceiveFrom(buffer, socketFlags, ref remoteEP);
         return BLOCK_ORIGINAL;
     }
@@ -226,7 +222,6 @@ public static class FutariPatch
     [HarmonyPatch(typeof(NFSocket), "SetSocketOption")]
     private static bool NFSetSocketOption(NFSocket __instance, SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
     {
-        Log.Debug("NFSetSocketOption");
         redirect[__instance].SetSocketOption(optionLevel, optionName, optionValue);
         return BLOCK_ORIGINAL;
     }
