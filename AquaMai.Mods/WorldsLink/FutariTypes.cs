@@ -138,6 +138,7 @@ public static class Log
 
     public static void Debug(string msg)
     {
+        if (!Futari.Debug) return;
         lock (_lock)
         {
             MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg}{RESET}");
