@@ -58,7 +58,7 @@ public class FutariClient(string keychip, string host, int port, int _)
     public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
 
     /// <summary>
-    /// -1:Failed to connect
+    /// -1: Failed to connect
     /// 0: Not connect
     /// 1: Connecting
     /// 2: Connected
@@ -81,6 +81,7 @@ public class FutariClient(string keychip, string host, int port, int _)
             statusCode = -1;
             errorMsg = ex.Message;
             Log.Error($"Error connecting to server:\nHost:{host}:{port}\n{ex.Message}");
+            ConnectAsync();
             return;
         }
         var networkStream = _tcpClient.GetStream();
