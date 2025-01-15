@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
+using System.Text;
 using MelonLoader;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -65,6 +67,23 @@ public struct Msg
             dPort = Parse<int>(fields, 7),
             data = string.Join(",", fields.Skip(16))
         };
+    }
+
+    public string ToReadableString()
+    {
+        var parts = new List<string> { cmd.ToString() };
+
+        if (proto.HasValue) parts.Add(proto.ToString());
+        if (sid.HasValue) parts.Add($"Stream: {sid}");
+        if (src.HasValue) parts.Add($"Src: {src?.ToIP()}:{sPort}");
+        if (dst.HasValue) parts.Add($"Dst: {dst?.ToIP()}:{dPort}");
+        if (!string.IsNullOrEmpty(data))
+        {
+            try { parts.Add(Encoding.UTF8.GetString(data.B64())); }
+            catch { parts.Add(data); }
+        }
+    
+        return string.Join(" | ", parts);
     }
 }
 
