@@ -82,8 +82,8 @@ public static class FutariPatch
     [HarmonyPatch(typeof(SocketBase), "sendClass", typeof(ICommandParam))]
     private static bool sendClass(SocketBase __instance, ICommandParam info)
     {
-        // Block AdvocateDelivery
-        if (info is AdvocateDelivery) return false;
+        // Block AdvocateDelivery, SettingHostAddress
+        if (info is AdvocateDelivery or Setting.SettingHostAddress) return BLOCK_ORIGINAL;
         
         // For logging only, log the actual type of info and the actual type of this class
         Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
