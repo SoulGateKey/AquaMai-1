@@ -197,6 +197,9 @@ public class FutariSocket
         }
         var data = msg.data!.B64();
 
+        // Set remote endpoint to the sender
+        remoteEP = new IPEndPoint(msg.src?.ToIP()!, msg.sPort!.Value);
+        
         Buffer.BlockCopy(data, 0, buffer, 0, data.Length);
         return data.Length;
     }
