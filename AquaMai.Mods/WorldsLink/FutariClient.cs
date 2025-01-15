@@ -44,7 +44,7 @@ public class FutariClient(string keychip, string host, int port, int _)
     private bool _reconnecting = false;
 
     private readonly Stopwatch _heartbeat = new Stopwatch().Also(it => it.Start());
-    private readonly long[] _delayWindow = new long[20];
+    private readonly long[] _delayWindow = new int[20].Select(_ => -1L).ToArray();
     private int _delayIndex = 0;
     public long _delayAvg = 0;
     
@@ -198,7 +198,7 @@ public class FutariClient(string keychip, string host, int port, int _)
                 var delay = _heartbeat.ElapsedMilliseconds;
                 _delayWindow[_delayIndex] = delay;
                 _delayIndex = (_delayIndex + 1) % _delayWindow.Length;
-                _delayAvg = (long) _delayWindow.Average();
+                _delayAvg = (long) _delayWindow.Where(x => x != -1).Average();
                 Log.Info($"Heartbeat: {delay}ms, Avg: {_delayAvg}ms");
                 break;
             
