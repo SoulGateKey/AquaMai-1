@@ -432,7 +432,8 @@ public static class Futari
         //修正SetConnectData触发条件.阻止原有IP判断重新设置
         if (!__instance.IsConnectingMusic)
         {
-            SetRecruitData.Invoke(__instance, [new RecruitInfo()]);
+
+            SetRecruitData.Invoke(__instance,[(Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Count==0?null:new RecruitInfo())]);
             SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
             __result = true;
         }
