@@ -7,6 +7,12 @@ using MelonLoader;
 
 namespace AquaMai.Mods.WorldsLink;
 
+public static class PrefixRet
+{
+    public const bool BLOCK_ORIGINAL = false;
+    public const bool RUN_ORIGINAL = true;
+}
+
 public enum Cmd
 {
     // Control plane
