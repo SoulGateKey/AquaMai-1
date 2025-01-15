@@ -26,6 +26,9 @@ public static class FutariPatch
 
     static MethodBase packet_writeunit;
     static System.Type StartUpStateType;
+
+    #region Init
+    
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
@@ -34,12 +37,39 @@ public static class FutariPatch
             [typeof(PacketType), typeof(int), typeof(uint)], null);
         if (packet_writeunit == null) Log.Error("write_uint not found");
 
-        StartUpStateType = typeof(StartupProcess).GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance).FieldType;
+        StartUpStateType = typeof(StartupProcess).GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType;
         if (StartUpStateType == null) Log.Error("StartUpStateType not found");
 
         client = new FutariClient("A000", "70.49.234.104", 20101);
     }
 
+    // Entrypoint
+    // private void CheckAuth_Proc()
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
+    private static bool CheckAuth_Proc()
+    {
+        if (isInit) return RUN_ORIGINAL;
+        Log.Info("CheckAuth_Proc");
+
+        var keychip = AMDaemon.System.KeychipId.ShortValue;
+        Log.Info($"Keychip ID: {keychip}");
+        if (string.IsNullOrEmpty(keychip))
+        {
+            Log.Error("Keychip ID is empty. WorldsLink will not work.");
+            // return;
+
+            // For testing: Create a random keychip (10-digit number)
+            keychip = "A" + new Random().Next(1000000000, int.MaxValue);
+        }
+        client.keychip = keychip;
+        client.ConnectAsync();
+
+        isInit = true;
+        return RUN_ORIGINAL;
+    }
+    
+    #endregion
     // Patch for logging
     // SocketBase:: public void sendClass(ICommandParam info)
     [HarmonyPrefix]
@@ -96,37 +126,13 @@ public static class FutariPatch
         }
     }
 
-    // private void CheckAuth_Proc()
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(OperationManager), "CheckAuth_Proc")]
-    private static bool CheckAuth_Proc()
-    {
-        if (isInit) return RUN_ORIGINAL;
-        Log.Info("CheckAuth_Proc");
-
-        var keychip = AMDaemon.System.KeychipId.ShortValue;
-        Log.Info($"Keychip ID: {keychip}");
-        if (string.IsNullOrEmpty(keychip))
-        {
-            Log.Error("Keychip ID is empty. WorldsLink will not work.");
-            // return;
-
-            // For testing: Create a random keychip (10-digit number)
-            keychip = "A" + new Random().Next(1000000000, int.MaxValue);
-        }
-        client.keychip = keychip;
-        client.ConnectAsync();
-
-        isInit = true;
-        return RUN_ORIGINAL;
-    }
-
     #region NFSocket
     [HarmonyPostfix]
     [HarmonyPatch(typeof(NFSocket), MethodType.Constructor, typeof(AddressFamily), typeof(SocketType), typeof(ProtocolType), typeof(int))]
     private static void NFCreate(NFSocket __instance, AddressFamily addressFamily, SocketType socketType, ProtocolType protocolType, int mockID)
     {
-        Log.Debug("new NFSocket(AddressFamily, SocketType, ProtocolType, int)");
+        Log.Debug($"new NFSocket({addressFamily}, {socketType}, {protocolType}, {mockID})");
+        if (mockID == 3939) return;  // Created in redirected NFAccept as a stub
         var futari = new FutariSocket(addressFamily, socketType, protocolType, mockID);
         redirect.Add(__instance, futari);
     }
@@ -203,8 +209,8 @@ public static class FutariPatch
     {
         Log.Debug("NFAccept");
         var futariSocket = redirect[__instance].Accept();
-        var mockSocket = new NFSocket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp, 0);
-        redirect.Add(mockSocket, futariSocket);
+        var mockSocket = new NFSocket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp, 3939);
+        redirect[mockSocket] = futariSocket;
         __result = mockSocket;
         return BLOCK_ORIGINAL;
     }
