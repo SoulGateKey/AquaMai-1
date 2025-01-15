@@ -162,7 +162,7 @@ public static class Futari
         ____statusMsg[8] = "PING";
         ____statusSubMsg[8] = client._delayAvg == 0 ? "N/A" : $"{client._delayAvg} ms";
         ____statusMsg[9] = "CAT";
-        ____statusSubMsg[9] = client._delayIndex % 2 == 0 ? "MEOW" : ":3";
+        ____statusSubMsg[9] = client._delayIndex % 2 == 0 ? "MEOW" : " :3 ";
 
         // If it is in the wait link delivery state, change to ready immediately
         if (____state != 0x04) return;
