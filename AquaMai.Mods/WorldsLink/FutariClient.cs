@@ -161,23 +161,33 @@ public class FutariClient(string keychip, string host, int port, int _)
 
     private void HandleIncomingMessage(Msg msg)
     {
-        Log.Info($"{keychip} <<< {msg}");
+        if (msg.cmd != Cmd.CTL_HEARTBEAT)
+            Log.Info($"{FutariExt.KeychipToStubIp(keychip).ToIP()} <<< {msg.ToReadableString()}");
 
         switch (msg.cmd)
         {
             // UDP message
             case Cmd.DATA_SEND or Cmd.DATA_BROADCAST when msg.proto == ProtocolType.Udp && msg.dPort != null:
-                udpRecvQ.Get(msg.dPort.Value)?.Enqueue(msg);
+                udpRecvQ.Get(msg.dPort.Value)?.Also(q =>
+                {
+                    Log.Info($"+ Added to UDP queue, there are {q.Count + 1} messages in queue");
+                })?.Enqueue(msg);
                 break;
             
             // TCP connection
             case Cmd.DATA_SEND when msg.proto == ProtocolType.Tcp && msg.sid != null:
-                tcpRecvQ.Get(msg.sid.Value)?.Enqueue(msg);
+                tcpRecvQ.Get(msg.sid.Value)?.Also(q =>
+                {
+                    Log.Info($"+ Added to TCP queue, there are {q.Count + 1} messages in queue");
+                })?.Enqueue(msg);
                 break;
             
             // TCP connection accepted
             case Cmd.CTL_TCP_CONNECT when msg.dPort != null:
-                acceptQ.Get(msg.dPort.Value)?.Enqueue(msg);
+                acceptQ.Get(msg.dPort.Value)?.Also(q =>
+                {
+                    Log.Info($"+ Added to Accept queue, there are {q.Count + 1} messages in queue");
+                })?.Enqueue(msg);
                 break; 
         }
     }
@@ -185,6 +195,7 @@ public class FutariClient(string keychip, string host, int port, int _)
     private void Send(Msg msg)
     {
         _writer.WriteLine(msg);
-        Log.Info($"{keychip} >>> {msg}");
+        if (msg.cmd != Cmd.CTL_HEARTBEAT)
+            Log.Info($"{FutariExt.KeychipToStubIp(keychip).ToIP()} >>> {msg.ToReadableString()}");
     }
 }
