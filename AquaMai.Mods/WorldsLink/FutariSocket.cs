@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -62,6 +63,9 @@ public class FutariSocket
         // Write is always ready?
         return mode == SelectMode.SelectWrite;
     }
+    
+    private static FieldInfo completedField = typeof(SocketAsyncEventArgs)
+        .GetField("Completed", BindingFlags.Instance | BindingFlags.NonPublic);
 
     // ConnectSocket.Enter_Connect (TCP)
     // The destination address is obtained from a RecruitInfo packet sent by the host.
@@ -76,7 +80,17 @@ public class FutariSocket
         if (addr is 2130706433 or 16777343) addr = _client.StubIP.ToNetworkByteOrderU32();
         _streamId = new Random().Next();
         _client.tcpRecvQ[_streamId] = new ConcurrentQueue<Msg>();
-        Log.Error($"Addr: {addr}");
+        _client.acceptCallbacks[_streamId] = msg =>
+        {
+            Log.Info("ConnectAsync: Accept callback, invoking Completed event");
+            var eventDelegate = (MulticastDelegate) completedField.GetValue(e);
+            if (eventDelegate == null) return;
+            foreach (var handler in eventDelegate.GetInvocationList())
+            {
+                Log.Info($"ConnectAsync: Invoking {handler.Method.Name}");
+                handler.DynamicInvoke(e, new SocketAsyncEventArgs { SocketError = SocketError.Success });
+            }
+        };
         _client.sendQ.Enqueue(new Msg
         {
             cmd = Cmd.CTL_TCP_CONNECT, 
@@ -85,9 +99,7 @@ public class FutariSocket
             dst = addr,
             dPort = ipEndP.Port
         });
-        // It is very annoying to call Complete event using reflection
-        // So we'll just pretend that the client has ACKed
-        return false;
+        return true;
     }
 
     // Accept is blocking

@@ -100,6 +100,12 @@ public static class FutariPatch
         return RUN_ORIGINAL;
     }
     
+    
+    #endregion
+
+    #region IP
+    
+    // Patch my IP address to a stub
     // public static IPAddress MyIpAddress(int mockID)
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PartyLink.Util), "MyIpAddress", typeof(int))]
