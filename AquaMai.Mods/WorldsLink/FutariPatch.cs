@@ -354,16 +354,17 @@ public static class Futari
     [HarmonyPatch(typeof(MusicSelectProcess), "OnStart")]
     private static bool MusicSelectProcessOnStart(MusicSelectProcess __instance)
     {
-        //初始化变量
+        // 每次重新进入选区菜单之后重新初始化变量
         musicIdSum = 0;
         sideMessageFlag = false;
         return PrefixRet.RUN_ORIGINAL;
     }
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "PartyExec")]
     private static bool PartyExec(MusicSelectProcess __instance)
     {
-        //检查联机房间是否有更新.如果更新的话设置IsConnectingMusic=false然后刷新列表
+        // 检查联机房间是否有更新，如果更新的话设置 IsConnectingMusic=false 然后刷新列表
         var checkDiff = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Sum(item => item.MusicID);
         if (musicIdSum != checkDiff)
         {
@@ -372,16 +373,11 @@ public static class Futari
         }
         if (__instance.IsConnectingMusic && __instance.RecruitData != null && __instance.IsConnectionFolder())
         {
-            //设置房间信息显示
-            string players = "WorldLink Room!";
-            for (int i = 0; i < __instance.RecruitData.MechaInfo.UserNames.Length; i++)
-            {
-                if (__instance.RecruitData.MechaInfo.FumenDifs[i] != -1)//不是没加入的话
-                {
-                    players += " Player:" + __instance.RecruitData.MechaInfo.UserNames[i] + " ";
-                }
-            }
-            for (int i = 0; i < __instance.MonitorArray.Length; i++)
+            // 设置房间信息显示
+            var info = __instance.RecruitData.MechaInfo;
+            var players = "WorldLink Room! Players: " + 
+                          string.Join(" and ", info.UserNames.Where((_, i) => info.FumenDifs[i] != -1));
+            for (var i = 0; i < __instance.MonitorArray.Length; i++)
             {
                 if (__instance.IsEntry(i))
                 {
@@ -390,9 +386,9 @@ public static class Futari
             }
             sideMessageFlag = true;
         }
-        else if(!__instance.IsConnectionFolder()&&sideMessageFlag)
+        else if(!__instance.IsConnectionFolder() && sideMessageFlag)
         {
-            for (int i = 0; i < __instance.MonitorArray.Length; i++)
+            for (var i = 0; i < __instance.MonitorArray.Length; i++)
             {
                 if (__instance.IsEntry(i))
                 {
@@ -403,23 +399,18 @@ public static class Futari
         }
         return PrefixRet.RUN_ORIGINAL;
     }
-    
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MusicSelectProcess), "RecruitData", MethodType.Getter)]
     private static void RecruitDataOverride(MusicSelectProcess __instance, ref RecruitInfo __result)
     {
-        if (!__instance.IsConnectionFolder())
-        {
-            return;
-        }
-        //开歌时设置当前选择的联机数据
-        if (__result != null)
-        {
-            var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
-            if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
-            { 
-                __result = list[__instance.CurrentMusicSelect];
-            }
+        // 开歌时设置当前选择的联机数据
+        if (!__instance.IsConnectionFolder() || __result == null) return;
+        
+        var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
+        if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
+        { 
+            __result = list[__instance.CurrentMusicSelect];
         }
     }
     [HarmonyPrefix]
@@ -490,6 +481,8 @@ public static class Futari
             
             __instance.IsConnectingMusic = true;
         }
+        
+        // No data available, add a dummy entry
         if (Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Count == 0)
         {
             ____connectCombineMusicDataList.Add(new CombineMusicSelectData
