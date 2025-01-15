@@ -87,8 +87,10 @@ public struct Msg
     }
 }
 
-public abstract class Log
+public static class Log
 {
+    private static readonly object _lock = new object();
+
     // Text colors
     private const string BLACK = "\u001b[30m";
     private const string RED = "\u001b[31m";
@@ -114,23 +116,35 @@ public abstract class Log
     
     public static void Error(string msg)
     {
-        MelonLogger.Error($"[FUTARI] {RED}ERROR {RESET}{msg}{RESET}");
+        lock (_lock)
+        {
+            MelonLogger.Error($"[FUTARI] {RED}ERROR {RESET}{msg}{RESET}");
+        }
     }
     
     public static void Warn(string msg)
     {
-        MelonLogger.Warning($"[FUTARI] {YELLOW}WARN  {RESET}{msg}{RESET}");
+        lock (_lock)
+        {
+            MelonLogger.Warning($"[FUTARI] {YELLOW}WARN  {RESET}{msg}{RESET}");
+        }
     }
 
     public static void Debug(string msg)
     {
-        MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg}{RESET}");
+        lock (_lock)
+        {
+            MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg}{RESET}");
+        }
     }
 
     public static void Info(string msg)
     {
-        if (msg.StartsWith("A001")) msg = MAGENTA + msg;
-        if (msg.StartsWith("A002")) msg = CYAN + msg;
-        MelonLogger.Msg($"[FUTARI] {GREEN}INFO  {RESET}{msg}{RESET}");
+        lock (_lock)
+        {
+            if (msg.StartsWith("A001")) msg = MAGENTA + msg;
+            if (msg.StartsWith("A002")) msg = CYAN + msg;
+            MelonLogger.Msg($"[FUTARI] {GREEN}INFO  {RESET}{msg}{RESET}");
+        }
     }
 }
