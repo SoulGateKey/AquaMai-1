@@ -13,7 +13,6 @@ using Process;
 using Manager.Party.Party;
 using AquaMai.Core.Attributes;
 using MAI2.Util;
-using Manager.MaiStudio;
 using Mai2.Mai2Cue;
 using static Process.MusicSelectProcess;
 
@@ -118,6 +117,27 @@ public static class Futari
         return PrefixRet.BLOCK_ORIGINAL;
     }
 
+    #endregion
+    
+    #region Bug Fix
+    
+    // Block start recruit if the song is not available
+    // Client:: private void RecvStartRecruit(Packet packet)
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Client), "RecvStartRecruit", typeof(Packet))]
+    private static bool RecvStartRecruit(Packet packet)
+    {
+        var inf = packet.getParam<StartRecruit>().RecruitInfo;
+        if (Singleton<DataManager>.Instance.GetMusic(inf.MusicID) == null)
+        {
+            Log.Error($"Recruit received but music {inf.MusicID} is not available.");
+            Log.Error($"If you want to play with {string.Join(" and ", inf.MechaInfo.UserNames)},");
+            Log.Error("make sure you have the same game version and option packs installed.");
+            return PrefixRet.BLOCK_ORIGINAL;
+        }
+        return PrefixRet.RUN_ORIGINAL;
+    }
+    
     #endregion
 
     //Skip StartupNetworkChecker
@@ -325,6 +345,7 @@ public static class Futari
     }
 
     #endregion
+    
     #region Recruit
 
     private static int musicIdSum;
