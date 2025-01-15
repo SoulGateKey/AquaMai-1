@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -36,7 +37,7 @@ public class FutariClient(string keychip, string host, int port, int _)
      
     private bool _reconnecting = false;
     
-    public IPAddress StubIP => new IPAddress(FutariExt.KeychipToStubIp(keychip));
+    public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
     
     public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
 

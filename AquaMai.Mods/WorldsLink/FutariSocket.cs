@@ -14,7 +14,7 @@ public class FutariSocket
     private int _streamId = -1;
 
     // ConnectSocket.Enter_Active (doesn't seem to be actually used)
-    public EndPoint LocalEndPoint { get; } = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 0);
+    public EndPoint LocalEndPoint => new IPEndPoint(_client.StubIP, 0);
 
     // ConnectSocket.Enter_Active, ListenSocket.acceptClient (TCP)
     // Each client's remote endpoint must be different
@@ -24,6 +24,7 @@ public class FutariSocket
     {
         _client = client;
         _proto = proto;
+        RemoteEndPoint = new IPEndPoint(_client.StubIP, 0);
     }
 
     // Compatibility constructor
@@ -70,14 +71,18 @@ public class FutariSocket
     public bool ConnectAsync(SocketAsyncEventArgs e, int mockID)
     {
         if (e.RemoteEndPoint is not IPEndPoint ipEndP) return false;
+        var addr = ipEndP.Address.ToNetworkByteOrderU32();
+        // Localhost
+        if (addr is 2130706433 or 16777343) addr = _client.StubIP.ToNetworkByteOrderU32();
         _streamId = new Random().Next();
         _client.tcpRecvQ[_streamId] = new ConcurrentQueue<Msg>();
+        Log.Error($"Addr: {addr}");
         _client.sendQ.Enqueue(new Msg
         {
             cmd = Cmd.CTL_TCP_CONNECT, 
             proto = _proto,
             sid = _streamId,
-            dst = ipEndP.Address.ToNetworkByteOrderU32(),
+            dst = addr,
             dPort = ipEndP.Port
         });
         // It is very annoying to call Complete event using reflection
@@ -107,8 +112,7 @@ public class FutariSocket
         return new FutariSocket(_client, _proto)
         {
             _streamId = msg.sid.Value,
-            RemoteEndPoint = new IPEndPoint(new IPAddress(new IpAddress(msg.src.Value).GetAddressBytes()), 
-                _bindPort)
+            RemoteEndPoint = new IPEndPoint(msg.src.Value.ToIP(), _bindPort)
         };
     }
 
