@@ -13,7 +13,6 @@ using Process;
 using Manager.Party.Party;
 using AquaMai.Core.Attributes;
 using MAI2.Util;
-using Manager.MaiStudio;
 using Mai2.Mai2Cue;
 using static Process.MusicSelectProcess;
 
@@ -36,7 +35,7 @@ public static class Futari
     public static bool Debug = false;
 
     #region Init
-
+    private static readonly MethodInfo SetRecruitData = typeof(MusicSelectProcess).GetProperty("RecruitData")!.SetMethod;
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
@@ -328,15 +327,16 @@ public static class Futari
     #region Recruit
 
     private static int musicIdSum;
+    private static bool sideMessageFlag;
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "OnStart")]
     private static bool MusicSelectProcessOnStart(MusicSelectProcess __instance)
     {
         //初始化变量
         musicIdSum = 0;
+        sideMessageFlag = false;
         return PrefixRet.RUN_ORIGINAL;
     }
-    
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "PartyExec")]
     private static bool PartyExec(MusicSelectProcess __instance)
@@ -348,6 +348,37 @@ public static class Futari
             musicIdSum = checkDiff;
             __instance.IsConnectingMusic = false;
         }
+        if (__instance.IsConnectingMusic && __instance.RecruitData != null && __instance.IsConnectionFolder())
+        {
+            //设置房间信息显示
+            string players = "WorldLink Room!";
+            for (int i = 0; i < __instance.RecruitData.MechaInfo.UserNames.Length; i++)
+            {
+                if (__instance.RecruitData.MechaInfo.FumenDifs[i] != -1)//不是没加入的话
+                {
+                    players += " Player:" + __instance.RecruitData.MechaInfo.UserNames[i] + " ";
+                }
+            }
+            for (int i = 0; i < __instance.MonitorArray.Length; i++)
+            {
+                if (__instance.IsEntry(i))
+                {
+                    __instance.MonitorArray[i].SetSideMessage(players);
+                }
+            }
+            sideMessageFlag = true;
+        }
+        else if(!__instance.IsConnectionFolder()&&sideMessageFlag)
+        {
+            for (int i = 0; i < __instance.MonitorArray.Length; i++)
+            {
+                if (__instance.IsEntry(i))
+                {
+                    __instance.MonitorArray[i].SetSideMessage(CommonMessageID.Scroll_Music_Select.GetName());
+                }
+            }
+            sideMessageFlag = false;
+        }
         return PrefixRet.RUN_ORIGINAL;
     }
     
@@ -355,16 +386,20 @@ public static class Futari
     [HarmonyPatch(typeof(MusicSelectProcess), "RecruitData", MethodType.Getter)]
     private static void RecruitDataOverride(MusicSelectProcess __instance, ref RecruitInfo __result)
     {
+        if (!__instance.IsConnectionFolder())
+        {
+            return;
+        }
         //开歌时设置当前选择的联机数据
-        if (__result == null) return;
-        
-        var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
-        if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
-            __result = list[__instance.CurrentMusicSelect];
+        if (__result != null)
+        {
+            var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
+            if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
+            { 
+                __result = list[__instance.CurrentMusicSelect];
+            }
+        }
     }
-    
-    private static readonly MethodInfo SetRecruitData = typeof(MusicSelectProcess).GetProperty("RecruitData")!.SetMethod;
-    
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
     private static bool RecruitDataOverride(MusicSelectProcess __instance,
