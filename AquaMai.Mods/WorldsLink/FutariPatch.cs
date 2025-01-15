@@ -11,6 +11,10 @@ using PartyLink;
 using Process;
 using Manager.Party.Party;
 using AquaMai.Core.Attributes;
+using MAI2.Util;
+using Manager.MaiStudio;
+using Mai2.Mai2Cue;
+using static Process.MusicSelectProcess;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -31,7 +35,7 @@ public static class Futari
     public static bool Debug = false;
 
     #region Init
-    
+
     public static void OnBeforePatch()
     {
         Log.Info("Starting WorldsLink patch...");
@@ -42,7 +46,7 @@ public static class Futari
 
         StartUpStateType = typeof(StartupProcess).GetField("_state", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType;
         if (StartUpStateType == null) Log.Error("StartUpStateType not found");
-    
+
         // TODO: Make IP configurable
         client = new FutariClient("A1234567890", "futari.aquadx.net", 20101);
     }
@@ -65,9 +69,9 @@ public static class Futari
         isInit = true;
         return PrefixRet.RUN_ORIGINAL;
     }
-    
+
     #endregion
-    
+
     #region Misc
 
     // Block irrelevant packets
@@ -77,7 +81,7 @@ public static class Futari
     {
         // Block AdvocateDelivery, SettingHostAddress
         if (info is AdvocateDelivery or Setting.SettingHostAddress) return PrefixRet.BLOCK_ORIGINAL;
-        
+
         // For logging only, log the actual type of info and the actual type of this class
         Log.Debug($"SendClass: {Log.BRIGHT_RED}{info.GetType().Name}{Log.RESET} from {__instance.GetType().Name}");
         return PrefixRet.RUN_ORIGINAL;
@@ -102,7 +106,7 @@ public static class Futari
         Log.Debug($"isSameVersion (original): {__result}, forcing true");
         __result = true;
     }
-    
+
     // Patch my IP address to a stub
     // public static IPAddress MyIpAddress(int mockID)
     [HarmonyPrefix]
@@ -118,7 +122,7 @@ public static class Futari
     //Skip StartupNetworkChecker
     [HarmonyPostfix]
     [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
-    private static void SkipStartupNetworkCheck(ref byte ____state, string[] ____statusMsg , string[] ____statusSubMsg)
+    private static void SkipStartupNetworkCheck(ref byte ____state, string[] ____statusMsg, string[] ____statusSubMsg)
     {
         //Title
         ____statusMsg[7] = "WORLD LINK";
@@ -143,7 +147,7 @@ public static class Futari
         }
         //Ping
         ____statusMsg[8] = "PING";
-        ____statusSubMsg[8]= client._delayAvg==0?"N/A":client._delayAvg.ToString()+"ms";
+        ____statusSubMsg[8] = client._delayAvg == 0 ? "N/A" : client._delayAvg.ToString() + "ms";
         //
         ____statusMsg[9] = "";
         ____statusSubMsg[9] = "";
@@ -153,7 +157,7 @@ public static class Futari
             ____state = 0x08;//StartupProcess.StartUpState.Ready
             DeliveryChecker.get().start(true);
             Setting.Data data = new Setting.Data();
-            data.set(false,4);
+            data.set(false, 4);
             Setting.get().setData(data);
             Setting.get().setRetryEnable(true);
             Advertise.get().initialize(MachineGroupID.ON);
@@ -332,7 +336,146 @@ public static class Futari
     }
 
     #endregion
+    #region Recruit
+    static int musicIDSUM;
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(MusicSelectProcess), "OnStart")]
+    private static bool MusicSelectProcessOnStart(MusicSelectProcess __instance)
+    {
+        //初始化变量
+        musicIDSUM = 0;
+        return PrefixRet.RUN_ORIGINAL;
+    }
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(MusicSelectProcess), "PartyExec")]
+    private static bool PartyExec(MusicSelectProcess __instance)
+    {
+        //检查联机房间是否有更新.如果更新的话设置IsConnectingMusic=false然后刷新列表
+        int checkDiff = 0;
+        foreach (var item in Manager.Party.Party.Party.Get().GetRecruitListWithoutMe())
+        {
+            checkDiff += item.MusicID;
+        }
+        if (musicIDSUM != checkDiff)
+        {
+            musicIDSUM = checkDiff;
+            __instance.IsConnectingMusic = false;
+        }
+        return PrefixRet.RUN_ORIGINAL;
+    }
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(MusicSelectProcess), "RecruitData", MethodType.Getter)]
+    private static void RecruitDataOverride(MusicSelectProcess __instance, ref RecruitInfo __result)
+    {
+        //开歌时设置当前选择的联机数据
+        if (__result != null)
+        {
+            var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
+            if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
+                __result = list[__instance.CurrentMusicSelect];
+        }
+    }
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
+    private static bool RecruitDataOverride(MusicSelectProcess __instance,
+        List<MusicSelectProcess.CombineMusicSelectData> ____connectCombineMusicDataList,
+        MusicSelectProcess.SubSequence[] ____currentPlayerSubSequence,
+        ref bool __result)
+    {
+        //修正SetConnectData触发条件.阻止原有IP判断重新设置
+        if (!__instance.IsConnectingMusic)
+        {
+            typeof(MusicSelectProcess).GetProperty("RecruitData").SetMethod.Invoke(__instance,new object[] { new RecruitInfo()});
+            SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
+            __result = true;
+        }
+        __result = false;
+        return PrefixRet.BLOCK_ORIGINAL;
+    }
 
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(MusicSelectProcess), "SetConnectData")]
+    private static bool SetConnectData(
+        MusicSelectProcess __instance,
+        List<MusicSelectProcess.CombineMusicSelectData> ____connectCombineMusicDataList,
+        MusicSelectProcess.SubSequence[] ____currentPlayerSubSequence
+        )
+    {
+        System.Type type = __instance.GetType();
+
+        ____connectCombineMusicDataList.Clear();
+        type.GetProperty(nameof(__instance.IsConnectCategoryEnable)).SetMethod.Invoke(__instance, new object[] { false });
+        //遍历所有房间并且显示
+        foreach (var item in Manager.Party.Party.Party.Get().GetRecruitListWithoutMe())
+        {
+            int musicID = item.MusicID;
+            MusicSelectProcess.CombineMusicSelectData combineMusicSelectData = new MusicSelectProcess.CombineMusicSelectData();
+            MusicData music = Singleton<DataManager>.Instance.GetMusic(musicID);
+            List<Notes> notesList = Singleton<NotesListManager>.Instance.GetNotesList()[musicID].NotesList;
+
+            if (musicID < 10000)
+            {
+                combineMusicSelectData.existStandardScore = true;
+            }
+            else if (10000 < musicID && musicID < 20000)
+            {
+                combineMusicSelectData.existDeluxeScore = true;
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                combineMusicSelectData.musicSelectData.Add(new MusicSelectProcess.MusicSelectData(music, notesList, 0));
+            }
+            ____connectCombineMusicDataList.Add(combineMusicSelectData);
+            try
+            {
+                string thumbnailName = music.thumbnailName;
+                for (int j = 0; j < __instance.MonitorArray.Length; j++)
+                {
+                    if (__instance.IsEntry(j))
+                    {
+                        __instance.MonitorArray[j].SetRecruitInfo(thumbnailName);
+                        SoundManager.PlaySE(Cue.SE_INFO_NORMAL, j);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                //防止有可能的空
+            }
+            __instance.IsConnectingMusic = true;
+        }
+        if (Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Count == 0)
+        {
+            MusicSelectProcess.CombineMusicSelectData combineMusicSelectData2 = new MusicSelectProcess.CombineMusicSelectData();
+            for (int k = 0; k < 2; k++)
+            {
+                combineMusicSelectData2.musicSelectData.Add(null);
+            }
+            combineMusicSelectData2.isWaitConnectScore = true;
+            ____connectCombineMusicDataList.Add(combineMusicSelectData2);
+            __instance.IsConnectingMusic = false;
+        }
+        if (__instance.MonitorArray != null)
+        {
+            for (int l = 0; l < __instance.MonitorArray.Length; l++)
+            {
+                if (____currentPlayerSubSequence[l] == MusicSelectProcess.SubSequence.Music)
+                {
+                    __instance.MonitorArray[l].SetDeployList(false, false);
+                    if (__instance.IsConnectionFolder(0))
+                    {
+                        __instance.ChangeBGM();
+                        if (__instance.IsEntry(l))
+                        {
+                            __instance.MonitorArray[l].SetVisibleButton(__instance.IsConnectingMusic, InputManager.ButtonSetting.Button04);
+                        }
+                    }
+                }
+            }
+        }
+        return PrefixRet.BLOCK_ORIGINAL;
+    }
+    #endregion
     #region Debug
 
     [EnableIf(typeof(Futari), nameof(Debug))]
@@ -346,7 +489,7 @@ public static class Futari
         {
             Log.Debug($"new ListenSocket({name}, {mockID})");
         }
-        
+
         // Log ListenSocket open
         // ListenSocket:: public bool open(ushort portNumber)
         [HarmonyPrefix]
@@ -371,12 +514,12 @@ public static class Futari
         // Log host creation
         // Host:: public Host(string name)
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(Host), MethodType.Constructor, typeof(string))]
+        [HarmonyPatch(typeof(Comio.Host), MethodType.Constructor, typeof(string))]
         private static void Host(Host __instance, string name)
         {
             Log.Debug($"new Host({name})");
         }
-        
+
         // Log host state change
         // Host:: private void SetCurrentStateID(PartyPartyHostStateID nextState)
         [HarmonyPrefix]
@@ -386,7 +529,7 @@ public static class Futari
             Log.Debug($"Host::SetCurrentStateID: {nextState}");
             return PrefixRet.RUN_ORIGINAL;
         }
-        
+
         // Log Member creation
         // Member:: public Member(string name, Host host, NFSocket socket)
         [HarmonyPostfix]
@@ -395,7 +538,7 @@ public static class Futari
         {
             Log.Debug($"new Member({name}, {host}, {socket})");
         }
-        
+
         // Log Member state change
         // Member:: public void SetCurrentStateID(PartyPartyClientStateID state)
         [HarmonyPrefix]
@@ -405,7 +548,7 @@ public static class Futari
             Log.Debug($"Member::SetCurrentStateID: {state}");
             return PrefixRet.RUN_ORIGINAL;
         }
-        
+
         // Log Member RecvRequestJoin
         // Member:: private void RecvRequestJoin(Packet packet)
         [HarmonyPrefix]
@@ -415,7 +558,7 @@ public static class Futari
             Log.Debug($"Member::RecvRequestJoin: {packet.getParam<RequestJoin>()}");
             return PrefixRet.RUN_ORIGINAL;
         }
-        
+
         // Log Member RecvClientState
         // Member:: private void RecvClientState(Packet packet)
         [HarmonyPrefix]
