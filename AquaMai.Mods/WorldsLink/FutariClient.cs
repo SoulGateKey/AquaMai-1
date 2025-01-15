@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -38,6 +40,11 @@ public class FutariClient(string keychip, string host, int port, int _)
     private Thread _recvThread;
      
     private bool _reconnecting = false;
+
+    private readonly Stopwatch _heartbeat = new Stopwatch().Also(it => it.Start());
+    private readonly long[] _delayWindow = new long[20];
+    private int _delayIndex = 0;
+    public long _delayAvg = 0;
     
     public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
     
@@ -109,14 +116,12 @@ public class FutariClient(string keychip, string host, int port, int _)
     {
         try
         {
-            long lastHeartbeat = 0;
             while (true)
             {
-                var time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                if (time - lastHeartbeat > 1000)
+                if (_heartbeat.ElapsedMilliseconds > 1000)
                 {
+                    _heartbeat.Restart();
                     Send(new Msg { cmd = Cmd.CTL_HEARTBEAT });
-                    lastHeartbeat = time;
                 }
 
                 // Send any data in the send queue
@@ -168,6 +173,15 @@ public class FutariClient(string keychip, string host, int port, int _)
 
         switch (msg.cmd)
         {
+            // Heartbeat
+            case Cmd.CTL_HEARTBEAT:
+                var delay = _heartbeat.ElapsedMilliseconds;
+                _delayWindow[_delayIndex] = delay;
+                _delayIndex = (_delayIndex + 1) % _delayWindow.Length;
+                _delayAvg = (long) _delayWindow.Average();
+                Log.Info($"Heartbeat: {delay}ms, Avg: {_delayAvg}ms");
+                break;
+            
             // UDP message
             case Cmd.DATA_SEND or Cmd.DATA_BROADCAST when msg is { proto: ProtocolType.Udp, dPort: not null }:
                 udpRecvQ.Get(msg.dPort.Value)?.Also(q =>
