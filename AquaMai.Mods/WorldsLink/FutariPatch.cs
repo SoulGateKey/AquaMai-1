@@ -99,6 +99,16 @@ public static class FutariPatch
         Log.Error($"Error: {message} ({no})");
         return RUN_ORIGINAL;
     }
+
+    // Force isSameVersion to return true
+    // Packet:: public bool isSameVersion()
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Packet), "isSameVersion")]
+    private static void isSameVersion(ref bool __result)
+    {
+        Log.Debug($"isSameVersion (original): {__result}, forcing true");
+        __result = true;
+    }
     
     
     #endregion

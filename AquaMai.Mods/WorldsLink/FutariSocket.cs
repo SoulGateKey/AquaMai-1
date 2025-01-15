@@ -188,18 +188,19 @@ public class FutariSocket
     // Only used in UdpRecvSocket to receive from 0 (broadcast)
     public int ReceiveFrom(byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP)
     {
-        Log.Debug("ReceiveFrom called");
         if (!_client.udpRecvQ.TryGetValue(_bindPort, out var q) || 
             !q.TryDequeue(out var msg))
         {
             Log.Warn("ReceiveFrom: No data to receive");
             return 0;
         }
-        var data = msg.data!.B64();
+        var data = msg.data?.B64() ?? [];
+        Log.Debug($"ReceiveFrom: {data.Length} bytes");
 
         // Set remote endpoint to the sender
-        remoteEP = new IPEndPoint(msg.src?.ToIP()!, msg.sPort!.Value);
-        
+        if (msg.src.HasValue)
+            remoteEP = new IPEndPoint(msg.src.Value.ToIP(), msg.sPort ?? 0);
+
         Buffer.BlockCopy(data, 0, buffer, 0, data.Length);
         return data.Length;
     }
