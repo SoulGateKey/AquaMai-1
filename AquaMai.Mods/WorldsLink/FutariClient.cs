@@ -7,7 +7,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using AMDaemon;
 using PartyLink;
+using static Manager.Accounting;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -47,8 +49,22 @@ public class FutariClient(string keychip, string host, int port, int _)
     public long _delayAvg = 0;
     
     public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
-    
+
+    public int StatusCode { get => statusCode; }
+    public string ErrorMsg { get => errorMsg; }
+    public string Host { get => host; }
+    public int Port { get => port; }
+
     public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
+
+    /// <summary>
+    /// -1:Failed to connect
+    /// 0: Not connect
+    /// 1: Connecting
+    /// 2: Connected
+    /// </summary>
+    int statusCode = 0;
+    string errorMsg = "";
 
     public void Connect()
     {
@@ -56,10 +72,14 @@ public class FutariClient(string keychip, string host, int port, int _)
 
         try
         {
+            statusCode = 1;
             _tcpClient.Connect(host, port);
+            statusCode = 2;
         }
         catch (Exception ex)
         {
+            statusCode = -1;
+            errorMsg = ex.Message;
             Log.Error($"Error connecting to server:\nHost:{host}:{port}\n{ex.Message}");
             return;
         }

@@ -4,13 +4,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using AquaMai.Config.Attributes;
-using AquaMai.Core.Attributes;
+using DB;
 using HarmonyLib;
 using Manager;
 using PartyLink;
 using Process;
-using DB;
 using Manager.Party.Party;
+using AquaMai.Core.Attributes;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -112,21 +112,55 @@ public static class Futari
         __result = FutariExt.MyStubIP().ToIP();
         return PrefixRet.BLOCK_ORIGINAL;
     }
-    
+
     #endregion
 
     //Skip StartupNetworkChecker
-    // [HarmonyPostfix]
-    // [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
-    // private static void SkipStartupNetworkCheck(ref byte ____state)
-    // {
-    //     //Log.Info("StartupProcess E:"+ Enum.GetName(StartUpStateType,____state));
-    //     if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
-    //     {
-    //         ____state = 0x08;//StartupProcess.StartUpState.Ready
-    //         Log.Info("Skip Startup Network Check");
-    //     }
-    // }
+    [HarmonyPostfix]
+    [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
+    private static void SkipStartupNetworkCheck(ref byte ____state, string[] ____statusMsg , string[] ____statusSubMsg)
+    {
+        //Title
+        ____statusMsg[7] = "WORLD LINK";
+        switch (client.StatusCode)
+        {
+            case -1:
+                ____statusSubMsg[7] = "BAD";
+                break;
+            case 0:
+                ____statusSubMsg[7] = "Not Connect";
+                break;
+            case 1:
+                ____statusSubMsg[7] = "Connecting";
+                break;
+            case 2:
+                ____statusSubMsg[7] = "GOOD";
+                break;
+
+            default:
+                ____statusSubMsg[7] = "Waiting...";
+                break;
+        }
+        //Ping
+        ____statusMsg[8] = "PING";
+        ____statusSubMsg[8]= client._delayAvg==0?"N/A":client._delayAvg.ToString()+"ms";
+        //
+        ____statusMsg[9] = "";
+        ____statusSubMsg[9] = "";
+        //Skip Oragin Init And Manual Init Party
+        if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
+        {
+            ____state = 0x08;//StartupProcess.StartUpState.Ready
+            DeliveryChecker.get().start(true);
+            Setting.Data data = new Setting.Data();
+            data.set(false,4);
+            Setting.get().setData(data);
+            Setting.get().setRetryEnable(true);
+            Advertise.get().initialize(MachineGroupID.ON);
+            Manager.Party.Party.Party.Get().Start(MachineGroupID.ON);
+            Log.Info("Skip Startup Network Check");
+        }
+    }
 
     #region NFSocket
     [HarmonyPostfix]
