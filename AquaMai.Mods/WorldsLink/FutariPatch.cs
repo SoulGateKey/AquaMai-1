@@ -105,7 +105,7 @@ public static class FutariPatch
     [HarmonyPatch(typeof(PartyLink.Util), "MyIpAddress", typeof(int))]
     private static bool MyIpAddress(int mockID, ref IPAddress __result)
     {
-        __result = new IPAddress(FutariExt.MyStubIP());
+        __result = FutariExt.MyStubIP().ToIP();
         return BLOCK_ORIGINAL;
     }
 
