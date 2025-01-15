@@ -140,6 +140,8 @@ public static class Futari
     
     #endregion
 
+    private static IManager PartyMan => Manager.Party.Party.Party.Get();
+
     //Skip StartupNetworkChecker
     [HarmonyPostfix]
     [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
@@ -159,8 +161,8 @@ public static class Futari
         // Delay
         ____statusMsg[8] = "PING";
         ____statusSubMsg[8] = client._delayAvg == 0 ? "N/A" : $"{client._delayAvg} ms";
-        ____statusMsg[9] = "CAT :3";
-        ____statusSubMsg[9] = "MEOW";
+        ____statusMsg[9] = "CAT";
+        ____statusSubMsg[9] = client._delayIndex % 2 == 0 ? "MEOW" : ":3";
 
         // If it is in the wait link delivery state, change to ready immediately
         if (____state != 0x04) return;
@@ -171,7 +173,7 @@ public static class Futari
         Setting.get().setData(new Setting.Data().Also(x => x.set(false, 4)));
         Setting.get().setRetryEnable(true);
         Advertise.get().initialize(MachineGroupID.ON);
-        Manager.Party.Party.Party.Get().Start(MachineGroupID.ON);
+        PartyMan.Start(MachineGroupID.ON);
         Log.Info("Skip Startup Network Check");
     }
 
@@ -365,7 +367,7 @@ public static class Futari
     private static bool PartyExec(MusicSelectProcess __instance)
     {
         // 检查联机房间是否有更新，如果更新的话设置 IsConnectingMusic=false 然后刷新列表
-        var checkDiff = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Sum(item => item.MusicID);
+        var checkDiff = PartyMan.GetRecruitListWithoutMe().Sum(item => item.MusicID);
         if (musicIdSum != checkDiff)
         {
             musicIdSum = checkDiff;
@@ -407,7 +409,7 @@ public static class Futari
         // 开歌时设置当前选择的联机数据
         if (!__instance.IsConnectionFolder() || __result == null) return;
         
-        var list = Manager.Party.Party.Party.Get().GetRecruitListWithoutMe();
+        var list = PartyMan.GetRecruitListWithoutMe();
         if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
         { 
             __result = list[__instance.CurrentMusicSelect];
@@ -444,7 +446,7 @@ public static class Futari
         SetConnectCategoryEnable.Invoke(__instance, [false]);
 
         // 遍历所有房间并且显示
-        foreach (var item in Manager.Party.Party.Party.Get().GetRecruitListWithoutMe())
+        foreach (var item in PartyMan.GetRecruitListWithoutMe())
         {
             var musicID = item.MusicID;
             var combineMusicSelectData = new CombineMusicSelectData();
@@ -483,7 +485,7 @@ public static class Futari
         }
         
         // No data available, add a dummy entry
-        if (Manager.Party.Party.Party.Get().GetRecruitListWithoutMe().Count == 0)
+        if (PartyMan.GetRecruitListWithoutMe().Count == 0)
         {
             ____connectCombineMusicDataList.Add(new CombineMusicSelectData
             {

@@ -45,7 +45,7 @@ public class FutariClient(string keychip, string host, int port, int _)
 
     private readonly Stopwatch _heartbeat = new Stopwatch().Also(it => it.Start());
     private readonly long[] _delayWindow = new int[20].Select(_ => -1L).ToArray();
-    private int _delayIndex = 0;
+    public int _delayIndex = 0;
     public long _delayAvg = 0;
     
     public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
