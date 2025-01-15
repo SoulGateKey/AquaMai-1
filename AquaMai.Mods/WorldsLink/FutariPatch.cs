@@ -4,8 +4,11 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using AquaMai.Config.Attributes;
+using DB;
 using HarmonyLib;
 using Manager;
+using Manager.Party.Party;
+using MelonLoader;
 using PartyLink;
 using Process;
 
@@ -70,6 +73,9 @@ public static class FutariPatch
     }
     
     #endregion
+
+    #region Logging
+    
     // Patch for logging
     // SocketBase:: public void sendClass(ICommandParam info)
     [HarmonyPrefix]
@@ -83,7 +89,7 @@ public static class FutariPatch
         Log.Debug($"SendClass: {info.GetType().Name} from {__instance.GetType().Name}");
         return RUN_ORIGINAL;
     }
-
+    
     // Patch for error logging
     // SocketBase:: protected void error(string message, int no)
     [HarmonyPrefix]
@@ -94,7 +100,6 @@ public static class FutariPatch
         return RUN_ORIGINAL;
     }
     
-    // Other patches not in NFSocket
     // public static IPAddress MyIpAddress(int mockID)
     [HarmonyPrefix]
     [HarmonyPatch(typeof(PartyLink.Util), "MyIpAddress", typeof(int))]
@@ -112,6 +117,8 @@ public static class FutariPatch
         __result = BitConverter.ToUInt32(ip.GetAddressBytes(), 0);
         return BLOCK_ORIGINAL;
     }
+    
+    #endregion
 
     //Skip StartupNetworkChecker
     [HarmonyPostfix]
