@@ -15,6 +15,10 @@ using AquaMai.Core.Attributes;
 using MAI2.Util;
 using Mai2.Mai2Cue;
 using static Process.MusicSelectProcess;
+using Monitor;
+using TMPro;
+using AquaMai.Mods.WorldsLink;
+using UnityEngine;
 
 namespace AquaMai.Mods.WorldsLink;
 
@@ -73,6 +77,36 @@ public static class Futari
     #endregion
 
     #region Misc
+    //Online Display
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(CommonMonitor), "ViewUpdate")]
+    private static void CommonMonitorViewUpdate(CommonMonitor __instance,TextMeshProUGUI ____buildVersionText, GameObject ____developmentBuildText)
+    {
+        ____buildVersionText.transform.position = ____developmentBuildText.transform.position;
+        ____buildVersionText.gameObject.SetActive(true);
+        switch (client.StatusCode)
+        {
+            case -1:
+                ____buildVersionText.text = $"WorldLink Offline";
+                ____buildVersionText.color = Color.red;
+                break;
+            case 0:
+                ____buildVersionText.text = $"WorldLink Disconnect";
+                ____buildVersionText.color = Color.gray;
+                break;
+            case 1:
+                ____buildVersionText.text = $"WorldLink Connecting";
+                ____buildVersionText.color = Color.yellow;
+                break;
+            case 2:
+                ____buildVersionText.color = Color.cyan;
+                if (Manager.Party.Party.Party.Get() == null)
+                    ____buildVersionText.text = $"WorldLink Waiting Ready";
+                else
+                    ____buildVersionText.text = $"WorldLink Online:{Manager.Party.Party.Party.Get().GetRecruitList().Count}";
+                break;
+        }
+    }
 
     // Block irrelevant packets
     [HarmonyPrefix]
