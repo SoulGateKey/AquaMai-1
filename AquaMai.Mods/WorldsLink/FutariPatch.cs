@@ -301,7 +301,7 @@ public static class Futari
 
     #region Debug
 
-    [EnableIf(nameof(Debug))]
+    [EnableIf(typeof(Futari), nameof(Debug))]
     public class FutariDebug
     {
         // Log ListenSocket creation
