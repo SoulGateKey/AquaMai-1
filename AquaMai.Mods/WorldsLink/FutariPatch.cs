@@ -127,17 +127,17 @@ public static class FutariPatch
     #endregion
 
     //Skip StartupNetworkChecker
-    [HarmonyPostfix]
-    [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
-    private static void SkipStartupNetworkCheck(ref byte ____state)
-    {
-        //Log.Info("StartupProcess E:"+ Enum.GetName(StartUpStateType,____state));
-        if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
-        {
-            ____state = 0x08;//StartupProcess.StartUpState.Ready
-            Log.Info("Skip Startup Network Check");
-        }
-    }
+    // [HarmonyPostfix]
+    // [HarmonyPatch("StartupProcess", nameof(StartupProcess.OnUpdate))]
+    // private static void SkipStartupNetworkCheck(ref byte ____state)
+    // {
+    //     //Log.Info("StartupProcess E:"+ Enum.GetName(StartUpStateType,____state));
+    //     if (____state == 0x04/*StartupProcess.StartUpState.WaitLinkDelivery*/)
+    //     {
+    //         ____state = 0x08;//StartupProcess.StartUpState.Ready
+    //         Log.Info("Skip Startup Network Check");
+    //     }
+    // }
 
     #region NFSocket
     [HarmonyPostfix]

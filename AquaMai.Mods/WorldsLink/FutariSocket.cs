@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using HarmonyLib;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -19,7 +20,7 @@ public class FutariSocket
 
     // ConnectSocket.Enter_Active, ListenSocket.acceptClient (TCP)
     // Each client's remote endpoint must be different
-    public EndPoint RemoteEndPoint { get; private set; } = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 0);
+    public EndPoint RemoteEndPoint { get; private set; }
 
     public FutariSocket(FutariClient client, ProtocolType proto)
     {
@@ -58,7 +59,7 @@ public class FutariSocket
                 ? !socket._client.udpRecvQ.Get(socket._bindPort)?.IsEmpty ?? false
                 : (socket._streamId == -1)  // Check is TCP stream or TCP server
                     ? !socket._client.acceptQ.Get(socket._bindPort)?.IsEmpty ?? false
-                    : !socket._client.tcpRecvQ.Get(socket._streamId)?.IsEmpty ?? false;
+                    : !socket._client.tcpRecvQ.Get(socket._streamId + socket._bindPort)?.IsEmpty ?? false;
         }
         // Write is always ready?
         return mode == SelectMode.SelectWrite;
@@ -74,13 +75,18 @@ public class FutariSocket
     // When it's false, e will contain the result of the operation
     public bool ConnectAsync(SocketAsyncEventArgs e, int mockID)
     {
-        if (e.RemoteEndPoint is not IPEndPoint ipEndP) return false;
-        var addr = ipEndP.Address.ToNetworkByteOrderU32();
-        // Localhost
-        if (addr is 2130706433 or 16777343) addr = _client.StubIP.ToNetworkByteOrderU32();
+        if (e.RemoteEndPoint is not IPEndPoint remote) return false;
+        var addr = remote.Address.ToNetworkByteOrderU32();
+
+        // Change Localhost to the local keychip address
+        if (addr is 2130706433 or 16777343) addr = _client.StubIPU32;
+        
+        // Random stream ID and port
         _streamId = new Random().Next();
-        _client.tcpRecvQ[_streamId] = new ConcurrentQueue<Msg>();
-        _client.acceptCallbacks[_streamId] = msg =>
+        _bindPort = new Random().Next(49152, 65535);
+        
+        _client.tcpRecvQ[_streamId + _bindPort] = new ConcurrentQueue<Msg>();
+        _client.acceptCallbacks[_streamId + _bindPort] = msg =>
         {
             Log.Info("ConnectAsync: Accept callback, invoking Completed event");
             var eventDelegate = (MulticastDelegate) completedField.GetValue(e);
@@ -96,9 +102,10 @@ public class FutariSocket
             cmd = Cmd.CTL_TCP_CONNECT, 
             proto = _proto,
             sid = _streamId,
-            dst = addr,
-            dPort = ipEndP.Port
+            src = _client.StubIPU32, sPort = _bindPort,
+            dst = addr, dPort = remote.Port
         });
+        RemoteEndPoint = new IPEndPoint(addr, remote.Port);
         return true;
     }
 
@@ -108,35 +115,40 @@ public class FutariSocket
         // Check if accept queue has any pending connections
         if (!_client.acceptQ.TryGetValue(_bindPort, out var q) ||
             !q.TryDequeue(out var msg) || 
-            msg.sid == null ||
-            msg.src == null)
+            msg.sid == null || msg.src == null || msg.sPort == null)
         {
             Log.Warn("Accept: No pending connections");
             return null;
         }
 
-        _client.tcpRecvQ[msg.sid.Value] = new ConcurrentQueue<Msg>();
+        _client.tcpRecvQ[msg.sid.Value + _bindPort] = new ConcurrentQueue<Msg>();
         _client.sendQ.Enqueue(new Msg
         {
-            cmd = Cmd.CTL_TCP_ACCEPT, proto = _proto, sid = msg.sid, dst = msg.src
+            cmd = Cmd.CTL_TCP_ACCEPT, proto = _proto, sid = msg.sid,
+            src = _client.StubIPU32, sPort = _bindPort,
+            dst = msg.src, dPort = msg.sPort
         });
         
         return new FutariSocket(_client, _proto)
         {
             _streamId = msg.sid.Value,
-            RemoteEndPoint = new IPEndPoint(msg.src.Value.ToIP(), _bindPort)
+            _bindPort = _bindPort,
+            RemoteEndPoint = new IPEndPoint(msg.src.Value.ToIP(), msg.sPort.Value)
         };
     }
 
     public int Send(byte[] buffer, int offset, int size, SocketFlags socketFlags)
     {
+        if (RemoteEndPoint is not IPEndPoint remote) throw new InvalidOperationException("RemoteEndPoint is not set");
         Log.Debug($"Send: {size} bytes");
         // Remote EP is not relevant here, because the stream is already established,
         // there can only be one remote endpoint
         _client.sendQ.Enqueue(new Msg
         {
             cmd = Cmd.DATA_SEND, proto = _proto, data = buffer.View(offset, size).B64(),
-            sid = _streamId == -1 ? null : _streamId
+            sid = _streamId == -1 ? null : _streamId,
+            src = _client.StubIPU32, sPort = _bindPort,
+            dst = remote.Address.ToNetworkByteOrderU32(), dPort = remote.Port
         });
         return size;
     }
@@ -145,10 +157,12 @@ public class FutariSocket
     public int SendTo(byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP)
     {
         Log.Debug($"SendTo: {size} bytes");
-        if (remoteEP is not IPEndPoint ipEndP) return 0;
+        if (remoteEP is not IPEndPoint remote) return 0;
         _client.sendQ.Enqueue(new Msg
         {
-            cmd = Cmd.DATA_BROADCAST, proto = _proto, data = buffer.View(offset, size).B64(), dPort = ipEndP.Port
+            cmd = Cmd.DATA_BROADCAST, proto = _proto, data = buffer.View(offset, size).B64(), 
+            src = _client.StubIPU32, sPort = _bindPort,
+            dst = remote.Address.ToNetworkByteOrderU32(), dPort = remote.Port
         });
         return size;
     }
@@ -157,7 +171,7 @@ public class FutariSocket
     public int Receive(byte[] buffer, int offset, int size, SocketFlags socketFlags, out SocketError errorCode)
     {
         Log.Debug("Receive called");
-        if (!_client.tcpRecvQ.TryGetValue(_streamId, out var q) || 
+        if (!_client.tcpRecvQ.TryGetValue(_streamId + _bindPort, out var q) || 
             !q.TryDequeue(out var msg))
         {
             Log.Warn("Receive: No data to receive");

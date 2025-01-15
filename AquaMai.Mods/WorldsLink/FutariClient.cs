@@ -25,13 +25,13 @@ public class FutariClient(string keychip, string host, int port, int _)
     private StreamReader _reader;
 
     public readonly ConcurrentQueue<Msg> sendQ = new();
-    // <Stream ID, Message Queue>
+    // <Port + Stream ID, Message Queue>
     public readonly ConcurrentDictionary<int, ConcurrentQueue<Msg>> tcpRecvQ = new();
     // <Port, Message Queue>
     public readonly ConcurrentDictionary<int, ConcurrentQueue<Msg>> udpRecvQ = new();
     // <Port, Accept Queue>
     public readonly ConcurrentDictionary<int, ConcurrentQueue<Msg>> acceptQ = new();
-    // <Stream ID, Callback>
+    // <Port + Stream ID, Callback>
     public readonly ConcurrentDictionary<int, Action<Msg>> acceptCallbacks = new();
 
     private Thread _sendThread;
@@ -39,7 +39,8 @@ public class FutariClient(string keychip, string host, int port, int _)
      
     private bool _reconnecting = false;
     
-    public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
+    public uint StubIPU32 => FutariExt.KeychipToStubIp(keychip);
+    public IPAddress StubIP => StubIPU32.ToIP();
     
     public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
 
@@ -169,7 +170,7 @@ public class FutariClient(string keychip, string host, int port, int _)
         switch (msg.cmd)
         {
             // UDP message
-            case Cmd.DATA_SEND or Cmd.DATA_BROADCAST when msg.proto == ProtocolType.Udp && msg.dPort != null:
+            case Cmd.DATA_SEND or Cmd.DATA_BROADCAST when msg is { proto: ProtocolType.Udp, dPort: not null }:
                 udpRecvQ.Get(msg.dPort.Value)?.Also(q =>
                 {
                     Log.Info($"+ Added to UDP queue, there are {q.Count + 1} messages in queue");
@@ -177,10 +178,10 @@ public class FutariClient(string keychip, string host, int port, int _)
                 break;
             
             // TCP message
-            case Cmd.DATA_SEND when msg.proto == ProtocolType.Tcp && msg.sid != null:
-                tcpRecvQ.Get(msg.sid.Value)?.Also(q =>
+            case Cmd.DATA_SEND when msg.proto == ProtocolType.Tcp && msg is { sid: not null, dPort: not null }:
+                tcpRecvQ.Get(msg.sid.Value + msg.dPort.Value)?.Also(q =>
                 {
-                    Log.Info($"+ Added to TCP queue, there are {q.Count + 1} messages in queue");
+                    Log.Info($"+ Added to TCP queue, there are {q.Count + 1} messages in queue for port {msg.dPort}");
                 })?.Enqueue(msg);
                 break;
             
@@ -193,8 +194,8 @@ public class FutariClient(string keychip, string host, int port, int _)
                 break;
             
             // TCP connection accept
-            case Cmd.CTL_TCP_ACCEPT when msg.sid != null:
-                acceptCallbacks.Get(msg.sid.Value)?.Invoke(msg);
+            case Cmd.CTL_TCP_ACCEPT when msg is { sid: not null, dPort: not null }:
+                acceptCallbacks.Get(msg.sid.Value + msg.dPort.Value)?.Invoke(msg);
                 break;
         }
     }
