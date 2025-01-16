@@ -195,11 +195,11 @@ public static class Futari
             recruits = $"{FutariClient.LOBBY_BASE}/list"
                 .Post("").Trim().Split('\n')
                 .Where(x => !string.IsNullOrEmpty(x))
-                .Select(JsonUtility.FromJson<RecruitInfo>)
-                .Each(x => RStartRecruit.Invoke(__instance, [x.ToPacket()]))
+                .Select(JsonUtility.FromJson<RecruitInfo>).ToList()
                 .Also(it => it
                     .Where(x => !recruits.Contains(x.Identity()))
                     .Each(x => RFinishRecruit.Invoke(__instance, [x.ToPacket()])))
+                .Each(x => RStartRecruit.Invoke(__instance, [x.ToPacket()]))
                 .Select(x => x.Identity())
                 .ToList()
         );
