@@ -625,7 +625,7 @@ public static class Futari
         // Log host creation
         // Host:: public Host(string name)
         [HarmonyPostfix]
-        [HarmonyPatch(typeof(Comio.Host), MethodType.Constructor, typeof(string))]
+        [HarmonyPatch(typeof(Host), MethodType.Constructor, typeof(string))]
         private static void Host(Host __instance, string name)
         {
             Log.Debug($"new Host({name})");

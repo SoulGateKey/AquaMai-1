@@ -83,7 +83,7 @@ public class FutariSocket
         
         // Random stream ID and port
         _streamId = new Random().Next();
-        _bindPort = new Random().Next(49152, 65535);
+        _bindPort = new Random().Next(55535, 65535);
         
         _client.tcpRecvQ[_streamId + _bindPort] = new ConcurrentQueue<Msg>();
         _client.acceptCallbacks[_streamId + _bindPort] = msg =>

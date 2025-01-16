@@ -150,7 +150,7 @@ public class FutariClient(string keychip, string host, int port, int _)
     private void HandleIncomingMessage(Msg msg)
     {
         if (msg.cmd != Cmd.CTL_HEARTBEAT)
-            Log.Info($"{FutariExt.KeychipToStubIp(keychip).ToIP()} <<< {msg.ToReadableString()}");
+            Log.Info($"{StubIP} <<< {msg.ToReadableString()}");
 
         switch (msg.cmd)
         {
@@ -196,8 +196,16 @@ public class FutariClient(string keychip, string host, int port, int _)
 
     private void Send(Msg msg)
     {
+        // Check if msg's destination ip is the same as my local ip. If so, handle it locally
+        if (msg.dst == StubIP.ToU32())
+        {
+            Log.Debug($"Loopback @@@ {msg.ToReadableString()}");
+            HandleIncomingMessage(msg);
+            return;
+        }
+        
         _writer.WriteLine(msg);
         if (msg.cmd != Cmd.CTL_HEARTBEAT)
-            Log.Info($"{FutariExt.KeychipToStubIp(keychip).ToIP()} >>> {msg.ToReadableString()}");
+            Log.Info($"{StubIP} >>> {msg.ToReadableString()}");
     }
 }
