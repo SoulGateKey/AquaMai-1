@@ -177,6 +177,12 @@ public static class Futari
     
     private static readonly MethodInfo RStartRecruit = typeof(Client)
         .GetMethod("RecvStartRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
+    private static readonly MethodInfo RFinishRecruit = typeof(Client)
+        .GetMethod("RecvFinishRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
+    private static List<string> recruits = [];
+
+    private static string Identity(this RecruitInfo x) => $"{x.IpAddress} : {x.MusicID}";
+    private static Packet ToPacket(this RecruitInfo info) => new Packet(info.IpAddress).Also(x => x.encode(new StartRecruit(info)));
     
     // Client Constructor
     // Client:: public Client(string name, PartyLink.Party.InitParam initParam)
@@ -186,13 +192,17 @@ public static class Futari
     {
         Log.Debug($"new Client({name}, {initParam})");
         10000.Interval(() => 
-            $"{FutariClient.LOBBY_BASE}/list"
-                .Post("").Trim().Split('\n').Where(x => !string.IsNullOrEmpty(x))
-                .Select(JsonUtility.FromJson<RecruitInfo>).ToList()
-                .ForEach(x => RStartRecruit.Invoke(__instance, [
-                    new Packet(x.IpAddress).Also(y => y.encode(new StartRecruit(x)))
-                ])
-        ));
+            recruits = $"{FutariClient.LOBBY_BASE}/list"
+                .Post("").Trim().Split('\n')
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(JsonUtility.FromJson<RecruitInfo>)
+                .Each(x => RStartRecruit.Invoke(__instance, [x.ToPacket()]))
+                .Also(it => it
+                    .Where(x => !recruits.Contains(x.Identity()))
+                    .Each(x => RFinishRecruit.Invoke(__instance, [x.ToPacket()])))
+                .Select(x => x.Identity())
+                .ToList()
+        );
     }
     
     // Block start recruit if the song is not available

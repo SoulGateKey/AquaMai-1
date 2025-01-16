@@ -2,10 +2,12 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Manager.Party.Party;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -31,10 +33,8 @@ public static class FutariExt
     public static R Let<T, R>(this T x, Func<T, R> f) => f(x);
     public static T Also<T>(this T x, Action<T> f) { f(x); return x; }
 
-    public static void Each<T>(this IEnumerable<T> lst, Action<T> f)
-    {
-        foreach (var v in lst) f(v);
-    }
+    public static List<T> Each<T>(this IEnumerable<T> enu, Action<T> f) => 
+        enu.ToList().Also(x => x.ForEach(f));
 
     public static byte[] View(this byte[] buffer, int offset, int size)
     {
@@ -104,4 +104,5 @@ public static class FutariExt
             final?.Invoke();
         }
     }).Also(x => x.Start());
+
 }
