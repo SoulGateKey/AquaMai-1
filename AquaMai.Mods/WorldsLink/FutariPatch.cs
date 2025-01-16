@@ -79,7 +79,7 @@ public static class Futari
     #region Misc
     //Force Enable LanAvailable
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(Network), "IsLanAvailable", MethodType.Getter)]
+    [HarmonyPatch(typeof(AMDaemon.Network), "IsLanAvailable", MethodType.Getter)]
     private static bool PreIsLanAvailable(ref bool __result)
     {
         __result = true;
