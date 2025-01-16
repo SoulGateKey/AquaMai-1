@@ -182,7 +182,6 @@ public static class Futari
     private static Dictionary<string, RecruitInfo> recruits = [];
 
     private static string Identity(this RecruitInfo x) => $"{x.IpAddress} : {x.MusicID}";
-    private static Packet ToPacket(this RecruitInfo info) => new Packet(info.IpAddress).Also(x => x.encode(new StartRecruit(info)));
     
     // Client Constructor
     // Client:: public Client(string name, PartyLink.Party.InitParam initParam)
@@ -200,10 +199,14 @@ public static class Futari
                     .Select(x => x.Identity())
                     .Do(ids => recruits.Keys
                         .Where(key => !ids.Contains(key))
-                        .Each(key => RFinishRecruit.Invoke(__instance, [recruits[key].ToPacket()]))
+                        .Each(key => RFinishRecruit.Invoke(__instance, [new Packet(recruits[key].IpAddress)
+                            .Also(p => p.encode(new FinishRecruit(recruits[key])))
+                        ]))
                     )
                 )
-                .Each(x => RStartRecruit.Invoke(__instance, [x.ToPacket()]))
+                .Each(x => RStartRecruit.Invoke(__instance, [new Packet(x.IpAddress)
+                    .Also(p => p.encode(new StartRecruit(x)))
+                ]))
                 .ToDictionary(x => x.Identity())
         );
     }
@@ -494,8 +497,7 @@ public static class Futari
         
         var list = PartyMan.GetRecruitListWithoutMe();
         if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
-        { 
-            Log.Debug($"MusicSelectProcess::RecruitData getter override: {__instance.CurrentMusicSelect}");
+        {
             __result = list[__instance.CurrentMusicSelect];
         }
     }
