@@ -39,7 +39,7 @@ public class FutariSocket
     // ListenSocket.open, UdpRecvSocket.open
     public void Bind(EndPoint localEndP)
     {
-        if (localEndP is IPEndPoint ep) _client.Bind(ep.Port, _proto);
+        if (localEndP is IPEndPoint ep) _client.Bind(_bindPort = ep.Port, _proto);
     }
 
     // Only used in BroadcastSocket
