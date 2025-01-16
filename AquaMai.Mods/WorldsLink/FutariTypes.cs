@@ -11,6 +11,9 @@ public static class PrefixRet
 {
     public const bool BLOCK_ORIGINAL = false;
     public const bool RUN_ORIGINAL = true;
+
+    public static bool Run(Action action) => RUN_ORIGINAL.Also(_ => action());
+    public static bool Block(Action action) => BLOCK_ORIGINAL.Also(_ => action());
 }
 
 public enum Cmd
