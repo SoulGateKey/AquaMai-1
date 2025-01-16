@@ -100,10 +100,7 @@ public static class Futari
                 break;
             case 2:
                 ____buildVersionText.color = Color.cyan;
-                if (Manager.Party.Party.Party.Get() == null)
-                    ____buildVersionText.text = $"WorldLink Waiting Ready";
-                else
-                    ____buildVersionText.text = $"WorldLink Online:{Manager.Party.Party.Party.Get().GetRecruitList().Count}";
+                ____buildVersionText.text = Manager.Party.Party.Party.Get() == null ? $"WorldLink Waiting Ready" : $"WorldLink Online:{Manager.Party.Party.Party.Get().GetRecruitList().Count}";
                 break;
         }
     }

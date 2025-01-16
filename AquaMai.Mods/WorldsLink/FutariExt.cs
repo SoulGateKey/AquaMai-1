@@ -3,16 +3,25 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
 
 public static class FutariExt
 {
-    public static uint KeychipToStubIp(string keychip)
+    private static uint HashStringToUInt(string input)
     {
-        return uint.Parse("1" + keychip.Substring(2));
+        using var md5 = MD5.Create();
+        var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+        return ((uint)(hashBytes[0] & 0xFF) << 24) |
+               ((uint)(hashBytes[1] & 0xFF) << 16) |
+               ((uint)(hashBytes[2] & 0xFF) << 8) |
+               ((uint)(hashBytes[3] & 0xFF));
     }
+
+    public static uint KeychipToStubIp(string keychip) => HashStringToUInt(keychip);
 
     public static IPAddress ToIP(this uint val) => new(new IpAddress(val).GetAddressBytes());
     public static uint ToU32(this IPAddress ip) => ip.ToNetworkByteOrderU32();
