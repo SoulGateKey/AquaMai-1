@@ -482,9 +482,11 @@ public static class Futari
         var list = PartyMan.GetRecruitListWithoutMe();
         if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
         { 
+            Log.Debug($"MusicSelectProcess::RecruitData getter override: {__instance.CurrentMusicSelect}");
             __result = list[__instance.CurrentMusicSelect];
         }
     }
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
     private static bool RecruitDataOverride(MusicSelectProcess __instance,
@@ -495,9 +497,11 @@ public static class Futari
         __result = false;
         
         // 修正 SetConnectData 触发条件，阻止原有 IP 判断重新设置
-        if (!__instance.IsConnectingMusic && PartyMan.GetRecruitListWithoutMe().Count > 0)
+        var recruits = PartyMan.GetRecruitListWithoutMe();
+        if (!__instance.IsConnectingMusic && recruits.Count > 0)
         {
-            SetRecruitData.Invoke(__instance, [new RecruitInfo()]);
+            Log.Debug("MusicSelectProcess::IsConnectStart recruit data has been set to empty");
+            SetRecruitData.Invoke(__instance, [recruits[0]]);
             SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
             __result = true;
         }
