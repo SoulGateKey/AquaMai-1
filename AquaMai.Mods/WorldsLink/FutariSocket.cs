@@ -39,11 +39,7 @@ public class FutariSocket
     // ListenSocket.open, UdpRecvSocket.open
     public void Bind(EndPoint localEndP)
     {
-        if (localEndP is not IPEndPoint ipEndP) return;
-        _bindPort = ipEndP.Port;
-        _client.Bind(_bindPort, _proto);
-        _client.sendQ.Enqueue(new Msg { cmd = Cmd.CTL_BIND, proto = _proto, 
-            src = ipEndP.Address.ToU32(), sPort = ipEndP.Port });
+        if (localEndP is IPEndPoint ep) _client.Bind(ep.Port, _proto);
     }
 
     // Only used in BroadcastSocket
@@ -65,7 +61,7 @@ public class FutariSocket
         return mode == SelectMode.SelectWrite;
     }
     
-    private static FieldInfo completedField = typeof(SocketAsyncEventArgs)
+    private static readonly FieldInfo CompletedField = typeof(SocketAsyncEventArgs)
         .GetField("Completed", BindingFlags.Instance | BindingFlags.NonPublic);
 
     // ConnectSocket.Enter_Connect (TCP)
@@ -89,11 +85,10 @@ public class FutariSocket
         _client.acceptCallbacks[_streamId + _bindPort] = msg =>
         {
             Log.Info("ConnectAsync: Accept callback, invoking Completed event");
-            var eventDelegate = (MulticastDelegate) completedField.GetValue(e);
-            if (eventDelegate == null) return;
-            foreach (var handler in eventDelegate.GetInvocationList())
+            var events = (MulticastDelegate) CompletedField.GetValue(e);
+            foreach (var handler in events?.GetInvocationList() ?? [])
             {
-                Log.Info($"ConnectAsync: Invoking {handler.Method.Name}");
+                Log.Debug($"ConnectAsync: Invoking {handler.Method.Name}");
                 handler.DynamicInvoke(e, new SocketAsyncEventArgs { SocketError = SocketError.Success });
             }
         };

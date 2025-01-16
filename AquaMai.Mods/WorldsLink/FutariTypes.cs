@@ -20,11 +20,9 @@ public enum Cmd
 {
     // Control plane
     CTL_START = 1,
-    CTL_BIND = 2,
     CTL_HEARTBEAT = 3,
     CTL_TCP_CONNECT = 4,  // Accept a new multiplexed TCP stream
     CTL_TCP_ACCEPT = 5,
-    CTL_TCP_ACCEPT_ACK = 6,
     CTL_TCP_CLOSE = 7,
 
     // Data plane
