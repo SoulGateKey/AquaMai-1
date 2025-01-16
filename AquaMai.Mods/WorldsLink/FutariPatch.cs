@@ -110,7 +110,7 @@ public static class Futari
                 break;
             case 2:
                 ____buildVersionText.color = Color.cyan;
-                ____buildVersionText.text = Manager.Party.Party.Party.Get() == null ? $"WorldLink Waiting Ready" : $"WorldLink Online:{Manager.Party.Party.Party.Get().GetRecruitList().Count}";
+                ____buildVersionText.text = PartyMan == null ? $"WorldLink Waiting" : $"WorldLink Recruiting: {PartyMan.GetRecruitList().Count}";
                 break;
         }
     }
@@ -427,6 +427,7 @@ public static class Futari
 
     private static int musicIdSum;
     private static bool sideMessageFlag;
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "OnStart")]
     private static bool MusicSelectProcessOnStart(MusicSelectProcess __instance)
@@ -448,30 +449,24 @@ public static class Futari
             musicIdSum = checkDiff;
             __instance.IsConnectingMusic = false;
         }
+
         if (__instance.IsConnectingMusic && __instance.RecruitData != null && __instance.IsConnectionFolder())
         {
             // 设置房间信息显示
             var info = __instance.RecruitData.MechaInfo;
             var players = "WorldLink Room! Players: " + 
                           string.Join(" and ", info.UserNames.Where((_, i) => info.FumenDifs[i] != -1));
-            for (var i = 0; i < __instance.MonitorArray.Length; i++)
-            {
-                if (__instance.IsEntry(i))
-                {
-                    __instance.MonitorArray[i].SetSideMessage(players);
-                }
-            }
+            
+            __instance.MonitorArray.Where((_, i) => __instance.IsEntry(i))
+                .Each(x => x.SetSideMessage(players));
+            
             sideMessageFlag = true;
         }
         else if(!__instance.IsConnectionFolder() && sideMessageFlag)
         {
-            for (var i = 0; i < __instance.MonitorArray.Length; i++)
-            {
-                if (__instance.IsEntry(i))
-                {
-                    __instance.MonitorArray[i].SetSideMessage(CommonMessageID.Scroll_Music_Select.GetName());
-                }
-            }
+            __instance.MonitorArray.Where((_, i) => __instance.IsEntry(i))
+                .Each(x => x.SetSideMessage(CommonMessageID.Scroll_Music_Select.GetName()));
+            
             sideMessageFlag = false;
         }
         return PrefixRet.RUN_ORIGINAL;

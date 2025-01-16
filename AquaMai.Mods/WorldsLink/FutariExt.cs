@@ -31,6 +31,11 @@ public static class FutariExt
     public static R Let<T, R>(this T x, Func<T, R> f) => f(x);
     public static T Also<T>(this T x, Action<T> f) { f(x); return x; }
 
+    public static void Each<T>(this IEnumerable<T> lst, Action<T> f)
+    {
+        foreach (var v in lst) f(v);
+    }
+
     public static byte[] View(this byte[] buffer, int offset, int size)
     {
         var array = new byte[size];
