@@ -77,6 +77,14 @@ public static class Futari
     #endregion
 
     #region Misc
+    //Force Enable LanAvailable
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Network), "IsLanAvailable", MethodType.Getter)]
+    private static bool PreIsLanAvailable(ref bool __result)
+    {
+        __result = true;
+        return false;
+    }
     //Online Display
     [HarmonyPostfix]
     [HarmonyPatch(typeof(CommonMonitor), "ViewUpdate")]
