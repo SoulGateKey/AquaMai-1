@@ -179,7 +179,7 @@ public static class Futari
         .GetMethod("RecvStartRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
     private static readonly MethodInfo RFinishRecruit = typeof(Client)
         .GetMethod("RecvFinishRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
-    private static List<string> recruits = [];
+    private static Dictionary<string, RecruitInfo> recruits = [];
 
     private static string Identity(this RecruitInfo x) => $"{x.IpAddress} : {x.MusicID}";
     private static Packet ToPacket(this RecruitInfo info) => new Packet(info.IpAddress).Also(x => x.encode(new StartRecruit(info)));
@@ -196,12 +196,15 @@ public static class Futari
                 .Post("").Trim().Split('\n')
                 .Where(x => !string.IsNullOrEmpty(x))
                 .Select(JsonUtility.FromJson<RecruitInfo>).ToList()
-                .Also(it => it
-                    .Where(x => !recruits.Contains(x.Identity()))
-                    .Each(x => RFinishRecruit.Invoke(__instance, [x.ToPacket()])))
+                .Also(lst => lst
+                    .Select(x => x.Identity())
+                    .Do(ids => recruits.Keys
+                        .Where(key => !ids.Contains(key))
+                        .Each(key => RFinishRecruit.Invoke(__instance, [recruits[key].ToPacket()]))
+                    )
+                )
                 .Each(x => RStartRecruit.Invoke(__instance, [x.ToPacket()]))
-                .Select(x => x.Identity())
-                .ToList()
+                .ToDictionary(x => x.Identity())
         );
     }
     

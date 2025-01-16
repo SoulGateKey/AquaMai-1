@@ -79,8 +79,8 @@ public static class FutariExt
             {
                 try
                 {
-                    action();
                     Thread.Sleep(delay);
+                    action();
                 }
                 catch (ThreadInterruptedException)
                 {
@@ -89,13 +89,13 @@ public static class FutariExt
                 catch (Exception e)
                 {
                     if (stopOnError) throw;
-                    Log.Error($"Error in {name}: {e.Message}");
+                    Log.Error($"Error in {name}: {e}");
                 }
             }
         }
         catch (Exception e)
         {
-            Log.Error($"Fatal error in {name}: {e.Message}");
+            Log.Error($"Fatal error in {name}: {e}");
             error?.Invoke(e);
         }
         finally
