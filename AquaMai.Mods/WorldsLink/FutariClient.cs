@@ -15,8 +15,8 @@ namespace AquaMai.Mods.WorldsLink;
 
 public class FutariClient(string keychip, string host, int port, int _)
 {
-    public static string LOBBY_BASE = "http://localhost/mai2-futari/recruit";
-    // public static string LOBBY_BASE = "https://aquadx.net/aqua/mai2-futari/recruit";
+    // public static string LOBBY_BASE = "http://localhost/mai2-futari/recruit";
+    public static string LOBBY_BASE = "https://aquadx.net/aqua/mai2-futari/recruit";
     public static FutariClient Instance { get; set; }
 
     public FutariClient(string keychip, string host, int port) : this(keychip, host, port, 0)
