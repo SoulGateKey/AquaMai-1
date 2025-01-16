@@ -15,6 +15,8 @@ namespace AquaMai.Mods.WorldsLink;
 
 public class FutariClient(string keychip, string host, int port, int _)
 {
+    public static string LOBBY_BASE = "http://localhost/mai2-futari/recruit";
+    // public static string LOBBY_BASE = "https://aquadx.net/aqua/mai2-futari/recruit";
     public static FutariClient Instance { get; set; }
 
     public FutariClient(string keychip, string host, int port) : this(keychip, host, port, 0)
@@ -50,36 +52,31 @@ public class FutariClient(string keychip, string host, int port, int _)
     
     public IPAddress StubIP => FutariExt.KeychipToStubIp(keychip).ToIP();
 
-    public int StatusCode { get => statusCode; }
-    public string ErrorMsg { get => errorMsg; }
-    public string Host { get => host; }
-    public int Port { get => port; }
-
-    public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
-
     /// <summary>
     /// -1: Failed to connect
     /// 0: Not connect
     /// 1: Connecting
     /// 2: Connected
     /// </summary>
-    int statusCode = 0;
-    string errorMsg = "";
+    public int StatusCode { get; private set; } = 0;
+    public string ErrorMsg { get; private set; } = "";
 
-    public void Connect()
+    public void ConnectAsync() => new Thread(Connect) { IsBackground = true }.Start();
+
+    private void Connect()
     {
         _tcpClient = new TcpClient();
 
         try
         {
-            statusCode = 1;
+            StatusCode = 1;
             _tcpClient.Connect(host, port);
-            statusCode = 2;
+            StatusCode = 2;
         }
         catch (Exception ex)
         {
-            statusCode = -1;
-            errorMsg = ex.Message;
+            StatusCode = -1;
+            ErrorMsg = ex.Message;
             Log.Error($"Error connecting to server:\nHost:{host}:{port}\n{ex.Message}");
             ConnectAsync();
             return;
@@ -94,19 +91,36 @@ public class FutariClient(string keychip, string host, int port, int _)
         Log.Info($"Connected to server at {host}:{port}");
 
         // Start communication and message receiving in separate threads
-        _sendThread = new Thread(SendThread) { IsBackground = true };
-        _recvThread = new Thread(RecvThread) { IsBackground = true };
+        _sendThread = 10.Interval(() =>
+        {
+            if (_heartbeat.ElapsedMilliseconds > 1000)
+            {
+                _heartbeat.Restart();
+                Send(new Msg { cmd = Cmd.CTL_HEARTBEAT });
+            }
 
-        _sendThread.Start();
-        _recvThread.Start();
+            // Send any data in the send queue
+            while (sendQ.TryDequeue(out var msg)) Send(msg);
+
+        }, final: Reconnect, name: "SendThread", stopOnError: true);
+        
+        _recvThread = 10.Interval(() =>
+        {
+            var line = _reader.ReadLine();
+            if (line == null) return;
+
+            var message = Msg.FromString(line);
+            HandleIncomingMessage(message);
+        
+        }, final: Reconnect, name: "RecvThread", stopOnError: true);
     }
 
-    public void Bind(int port, ProtocolType proto)
+    public void Bind(int bindPort, ProtocolType proto)
     {
         if (proto == ProtocolType.Tcp) 
-            acceptQ.TryAdd(port, new ConcurrentQueue<Msg>());
+            acceptQ.TryAdd(bindPort, new ConcurrentQueue<Msg>());
         else if (proto == ProtocolType.Udp)
-            udpRecvQ.TryAdd(port, new ConcurrentQueue<Msg>());
+            udpRecvQ.TryAdd(bindPort, new ConcurrentQueue<Msg>());
     }
 
     private void Reconnect()
@@ -131,60 +145,6 @@ public class FutariClient(string keychip, string host, int port, int _)
         // Reconnect
         Log.Warn("Reconnecting...");
         ConnectAsync();
-    }
-
-    private void SendThread()
-    {
-        try
-        {
-            while (true)
-            {
-                if (_heartbeat.ElapsedMilliseconds > 1000)
-                {
-                    _heartbeat.Restart();
-                    Send(new Msg { cmd = Cmd.CTL_HEARTBEAT });
-                }
-
-                // Send any data in the send queue
-                while (sendQ.TryDequeue(out var msg))
-                    Send(msg);
-
-                Thread.Sleep(10);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Error during communication: {ex.Message}");
-        }
-        finally
-        {
-            Log.Error("SendThread finally reached");
-            Reconnect();
-        }
-    }
-
-    private void RecvThread()
-    {
-        try
-        {
-            while (true)
-            {
-                var line = _reader.ReadLine();
-                if (line == null) continue;
-
-                var message = Msg.FromString(line);
-                HandleIncomingMessage(message);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Error receiving messages: {ex.Message}");
-        }
-        finally
-        {
-            Log.Error("RecvThread finally reached");
-            Reconnect();
-        }
     }
 
     private void HandleIncomingMessage(Msg msg)

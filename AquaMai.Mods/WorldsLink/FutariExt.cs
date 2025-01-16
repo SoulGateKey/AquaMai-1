@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using PartyLink;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -26,6 +27,7 @@ public static class FutariExt
     public static IPAddress ToIP(this uint val) => new(new IpAddress(val).GetAddressBytes());
     public static uint ToU32(this IPAddress ip) => ip.ToNetworkByteOrderU32();
     
+    public static void Do<T>(this T x, Action<T> f) => f(x);
     public static R Let<T, R>(this T x, Func<T, R> f) => f(x);
     public static T Also<T>(this T x, Action<T> f) { f(x); return x; }
 
@@ -51,4 +53,50 @@ public static class FutariExt
     }
 
     public static uint MyStubIP() => KeychipToStubIp(AMDaemon.System.KeychipId.ShortValue);
+    
+    public static string Post(this string url, string body) => new WebClient().UploadString(url, body);
+    public static void PostAsync(this string url, string body, UploadStringCompletedEventHandler? callback = null) => 
+        new WebClient().Also(web =>
+        {
+            callback?.Do(it => web.UploadStringCompleted += it);
+            web.UploadStringAsync(new Uri(url), body);
+        });
+    
+    public static Thread Interval(
+        this int delay, Action action, bool stopOnError = false, 
+        Action<Exception>? error = null, Action? final = null, string? name = null
+    ) => new Thread(() => 
+    {
+        name ??= $"Interval {Thread.CurrentThread.ManagedThreadId} for {action}";
+        try
+        {
+            while (true)
+            {
+                try
+                {
+                    action();
+                    Thread.Sleep(delay);
+                }
+                catch (ThreadInterruptedException)
+                {
+                    break;
+                }
+                catch (Exception e)
+                {
+                    if (stopOnError) throw;
+                    Log.Error($"Error in {name}: {e.Message}");
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error($"Fatal error in {name}: {e.Message}");
+            error?.Invoke(e);
+        }
+        finally
+        {
+            Log.Warn($"{name} stopped");
+            final?.Invoke();
+        }
+    }).Also(x => x.Start());
 }

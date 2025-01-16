@@ -156,6 +156,9 @@ public class FutariSocket
     // Only used in BroadcastSocket
     public int SendTo(byte[] buffer, int offset, int size, SocketFlags socketFlags, EndPoint remoteEP)
     {
+        Log.Error("SendTo: Blocked");
+        return 0;
+
         Log.Debug($"SendTo: {size} bytes");
         if (remoteEP is not IPEndPoint remote) return 0;
         _client.sendQ.Enqueue(new Msg
@@ -188,6 +191,9 @@ public class FutariSocket
     // Only used in UdpRecvSocket to receive from 0 (broadcast)
     public int ReceiveFrom(byte[] buffer, SocketFlags socketFlags, ref EndPoint remoteEP)
     {
+        Log.Error("ReceiveFrom: Blocked");
+        return 0;
+        
         if (!_client.udpRecvQ.TryGetValue(_bindPort, out var q) || 
             !q.TryDequeue(out var msg))
         {

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Threading;
 using AquaMai.Config.Attributes;
 using DB;
 using HarmonyLib;
@@ -18,6 +19,7 @@ using static Process.MusicSelectProcess;
 using Monitor;
 using TMPro;
 using AquaMai.Mods.WorldsLink;
+using MelonLoader.TinyJSON;
 using UnityEngine;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -118,12 +120,25 @@ public static class Futari
     [HarmonyPatch(typeof(SocketBase), "sendClass", typeof(ICommandParam))]
     private static bool sendClass(SocketBase __instance, ICommandParam info)
     {
-        // Block AdvocateDelivery, SettingHostAddress
-        if (info is AdvocateDelivery or Setting.SettingHostAddress) return PrefixRet.BLOCK_ORIGINAL;
-
-        // For logging only, log the actual type of info and the actual type of this class
-        Log.Debug($"SendClass: {Log.BRIGHT_RED}{info.GetType().Name}{Log.RESET} from {__instance.GetType().Name}");
-        return PrefixRet.RUN_ORIGINAL;
+        switch (info)
+        {
+            // Block AdvocateDelivery, SettingHostAddress
+            case AdvocateDelivery or Setting.SettingHostAddress:
+                return PrefixRet.BLOCK_ORIGINAL;
+           
+            // If it's a Start/FinishRecruit message, send it using http instead
+            case StartRecruit or FinishRecruit:
+                var start = info is StartRecruit ? "start" : "finish";
+                var msg = JsonUtility.ToJson(info, false);
+                $"{FutariClient.LOBBY_BASE}/{start}".PostAsync(msg);
+                Log.Info($"Sent {start} recruit message: {msg}");
+                return PrefixRet.BLOCK_ORIGINAL;
+            
+            // Log the actual type of info and the actual type of this class
+            default:
+                Log.Debug($"SendClass: {Log.BRIGHT_RED}{info.GetType().Name}{Log.RESET} from {__instance.GetType().Name}");
+                return PrefixRet.RUN_ORIGINAL;
+        }
     }
 
     // Patch for error logging
@@ -158,7 +173,27 @@ public static class Futari
 
     #endregion
     
-    #region Bug Fix
+    #region Recruit Information
+    
+    private static readonly MethodInfo RStartRecruit = typeof(Client)
+        .GetMethod("RecvStartRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
+    
+    // Client Constructor
+    // Client:: public Client(string name, PartyLink.Party.InitParam initParam)
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Client), MethodType.Constructor, typeof(string), typeof(PartyLink.Party.InitParam))]
+    private static void Client(Client __instance, string name, PartyLink.Party.InitParam initParam)
+    {
+        Log.Debug($"new Client({name}, {initParam})");
+        10000.Interval(() => 
+            $"{FutariClient.LOBBY_BASE}/list"
+                .Post("").Trim().Split('\n').Where(x => !string.IsNullOrEmpty(x))
+                .Select(JsonUtility.FromJson<RecruitInfo>).ToList()
+                .ForEach(x => RStartRecruit.Invoke(__instance, [
+                    new Packet(x.IpAddress).Also(y => y.encode(new StartRecruit(x)))
+                ])
+        ));
+    }
     
     // Block start recruit if the song is not available
     // Client:: private void RecvStartRecruit(Packet packet)
@@ -167,6 +202,7 @@ public static class Futari
     private static bool RecvStartRecruit(Packet packet)
     {
         var inf = packet.getParam<StartRecruit>().RecruitInfo;
+        Log.Info($"RecvStartRecruit: {JsonUtility.ToJson(inf)}");
         if (Singleton<DataManager>.Instance.GetMusic(inf.MusicID) == null)
         {
             Log.Error($"Recruit received but music {inf.MusicID} is not available.");
