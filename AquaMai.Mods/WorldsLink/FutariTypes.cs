@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text;
+using Manager.Party.Party;
 using MelonLoader;
 
 namespace AquaMai.Mods.WorldsLink;
@@ -30,6 +31,11 @@ public enum Cmd
     DATA_BROADCAST = 22,
 }
 
+public class RecruitRecord
+{
+    public RecruitInfo RecruitInfo;
+    public string Keychip;
+}
 
 public struct Msg
 {

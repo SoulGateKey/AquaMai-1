@@ -27,7 +27,7 @@ namespace AquaMai.Mods.WorldsLink;
 [ConfigSection(
     en: "Enable WorldsLink Multiplayer",
     zh: "启用 WorldsLink 多人游戏",
-    defaultOn: true)]
+    defaultOn: false)]
 public static class Futari
 {
     private static readonly Dictionary<NFSocket, FutariSocket> redirect = new();
@@ -128,8 +128,12 @@ public static class Futari
            
             // If it's a Start/FinishRecruit message, send it using http instead
             case StartRecruit or FinishRecruit:
+                var inf = info is StartRecruit o ? o.RecruitInfo : ((FinishRecruit) info).RecruitInfo;
                 var start = info is StartRecruit ? "start" : "finish";
-                var msg = JsonUtility.ToJson(info, false);
+                var msg = JsonUtility.ToJson(new RecruitRecord {
+                    Keychip = client.keychip,
+                    RecruitInfo = inf
+                }, false);
                 $"{FutariClient.LOBBY_BASE}/{start}".PostAsync(msg);
                 Log.Info($"Sent {start} recruit message: {msg}");
                 return PrefixRet.BLOCK_ORIGINAL;
@@ -179,7 +183,7 @@ public static class Futari
         .GetMethod("RecvStartRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
     private static readonly MethodInfo RFinishRecruit = typeof(Client)
         .GetMethod("RecvFinishRecruit", BindingFlags.NonPublic | BindingFlags.Instance);
-    private static Dictionary<string, RecruitInfo> recruits = [];
+    private static Dictionary<string, RecruitInfo> lastRecruits = [];
 
     private static string Identity(this RecruitInfo x) => $"{x.IpAddress} : {x.MusicID}";
     
@@ -191,22 +195,23 @@ public static class Futari
     {
         Log.Debug($"new Client({name}, {initParam})");
         10000.Interval(() => 
-            recruits = $"{FutariClient.LOBBY_BASE}/list"
+            lastRecruits = $"{FutariClient.LOBBY_BASE}/list"
                 .Post("").Trim().Split('\n')
                 .Where(x => !string.IsNullOrEmpty(x))
-                .Select(JsonUtility.FromJson<RecruitInfo>).ToList()
+                .Select(JsonUtility.FromJson<RecruitRecord>).ToList()
                 .Also(lst => lst
-                    .Select(x => x.Identity())
-                    .Do(ids => recruits.Keys
+                    .Select(x => x.RecruitInfo.Identity())
+                    .Do(ids => lastRecruits.Keys
                         .Where(key => !ids.Contains(key))
-                        .Each(key => RFinishRecruit.Invoke(__instance, [new Packet(recruits[key].IpAddress)
-                            .Also(p => p.encode(new FinishRecruit(recruits[key])))
+                        .Each(key => RFinishRecruit.Invoke(__instance, [new Packet(lastRecruits[key].IpAddress)
+                            .Also(p => p.encode(new FinishRecruit(lastRecruits[key])))
                         ]))
                     )
                 )
-                .Each(x => RStartRecruit.Invoke(__instance, [new Packet(x.IpAddress)
-                    .Also(p => p.encode(new StartRecruit(x)))
+                .Each(x => RStartRecruit.Invoke(__instance, [new Packet(x.RecruitInfo.IpAddress)
+                    .Also(p => p.encode(new StartRecruit(x.RecruitInfo)))
                 ]))
+                .Select(x => x.RecruitInfo)
                 .ToDictionary(x => x.Identity())
         );
     }
@@ -439,7 +444,7 @@ public static class Futari
 
     #endregion
     
-    #region Recruit
+    #region Recruit UI
 
     private static int musicIdSum;
     private static bool sideMessageFlag;
@@ -502,22 +507,22 @@ public static class Futari
         }
     }
 
+    private static readonly MethodInfo SetConnData = typeof(MusicSelectProcess).GetMethod("SetConnectData")!;
+
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
-    private static bool RecruitDataOverride(MusicSelectProcess __instance,
-        List<CombineMusicSelectData> ____connectCombineMusicDataList,
-        SubSequence[] ____currentPlayerSubSequence,
-        ref bool __result)
+    private static bool RecruitDataOverride(MusicSelectProcess __instance, ref bool __result)
     {
         __result = false;
         
         // 修正 SetConnectData 触发条件，阻止原有 IP 判断重新设置
         var recruits = PartyMan.GetRecruitListWithoutMe();
-        if (!__instance.IsConnectingMusic && recruits.Count > 0)
+        if (!__instance.IsConnectingMusic)
         {
-            Log.Debug("MusicSelectProcess::IsConnectStart recruit data has been set to empty");
-            SetRecruitData.Invoke(__instance, [recruits[0]]);
-            SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
+            var recruit = recruits.Count > 0 ? recruits[0] : null;
+            Log.Debug($"MusicSelectProcess::IsConnectStart recruit data has been set to {recruit}");
+            SetRecruitData.Invoke(__instance, [recruit]);
+            SetConnData.Invoke(__instance, []);
             __result = true;
         }
         return PrefixRet.BLOCK_ORIGINAL;
