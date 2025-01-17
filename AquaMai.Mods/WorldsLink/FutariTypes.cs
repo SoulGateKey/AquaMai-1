@@ -127,11 +127,16 @@ public static class Log
     // Reset
     public const string RESET = "\u001b[0m";
     
+    // Remove all non-printable characters
+    private static string Norm(this string msg) => 
+        string.IsNullOrEmpty(msg) ? msg : 
+            new string(msg.Where(ch => !char.IsControl(ch)).ToArray());
+    
     public static void Error(string msg)
     {
         lock (_lock)
         {
-            MelonLogger.Error($"[FUTARI] {RED}ERROR {RESET}{msg}{RESET}");
+            MelonLogger.Error($"[FUTARI] {RED}ERROR {RESET}{msg.Norm()}{RESET}");
         }
     }
     
@@ -139,7 +144,7 @@ public static class Log
     {
         lock (_lock)
         {
-            MelonLogger.Warning($"[FUTARI] {YELLOW}WARN  {RESET}{msg}{RESET}");
+            MelonLogger.Warning($"[FUTARI] {YELLOW}WARN  {RESET}{msg.Norm()}{RESET}");
         }
     }
 
@@ -148,7 +153,7 @@ public static class Log
         if (!Futari.Debug) return;
         lock (_lock)
         {
-            MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg}{RESET}");
+            MelonLogger.Msg($"[FUTARI] {CYAN}DEBUG {RESET}{msg.Norm()}{RESET}");
         }
     }
 
@@ -158,7 +163,7 @@ public static class Log
         {
             if (msg.StartsWith("A001")) msg = MAGENTA + msg;
             if (msg.StartsWith("A002")) msg = CYAN + msg;
-            MelonLogger.Msg($"[FUTARI] {GREEN}INFO  {RESET}{msg}{RESET}");
+            MelonLogger.Msg($"[FUTARI] {GREEN}INFO  {RESET}{msg.Norm()}{RESET}");
         }
     }
 }
