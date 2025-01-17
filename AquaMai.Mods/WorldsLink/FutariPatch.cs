@@ -517,9 +517,10 @@ public static class Futari
         
         // 修正 SetConnectData 触发条件，阻止原有 IP 判断重新设置
         var recruits = PartyMan.GetRecruitListWithoutMe();
-        if (!__instance.IsConnectingMusic)
+        if (!__instance.IsConnectingMusic && recruits.Count > 0)
         {
-            var recruit = recruits.Count > 0 ? recruits[0] : null;
+            // var recruit = recruits.Count > 0 ? recruits[0] : null;
+            var recruit = recruits[0];
             Log.Debug($"MusicSelectProcess::IsConnectStart recruit data has been set to {recruit}");
             SetRecruitData.Invoke(__instance, [recruit]);
             SetConnData.Invoke(__instance, []);
