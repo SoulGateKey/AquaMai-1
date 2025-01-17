@@ -1,12 +1,25 @@
+using System.Linq;
+using System.Reflection;
 using AquaMai.Config.Attributes;
+using AquaMai.Core.Attributes;
 using HarmonyLib;
 using Manager.Operation;
+using MelonLoader;
 
 namespace AquaMai.Mods.Fix;
 
 [ConfigSection(exampleHidden: true, defaultOn: true)]
 public class DisableReboot
 {
+    private static bool forceOfflineTimerExists = false;
+
+    public static void OnBeforePatch()
+    {
+        forceOfflineTimerExists = typeof(MaintenanceTimer).GetProperty(
+            "ForceOfflineRemainingMinutes",
+            BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) != null;
+    }
+
     // IsAutoRebootNeeded
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MaintenanceTimer), "IsAutoRebootNeeded")]
@@ -82,6 +95,15 @@ public class DisableReboot
     public static bool IsClosed(ref bool __result)
     {
         __result = false;
+        return false;
+    }
+
+    [EnableIf(nameof(forceOfflineTimerExists))]
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(MaintenanceTimer), "ForceOfflineRemainingMinutes", MethodType.Getter)]
+    public static bool ForceOfflineRemainingMinutes(ref int __result)
+    {
+        __result = 600;
         return false;
     }
 }

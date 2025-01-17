@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 using MAI2.Util;
 using Manager;
@@ -26,10 +27,9 @@ public static class Shim
                 .GetConstructors()
                 .First();
             return ((INetQuery)baseNetQueryConstructor.Invoke(
-                baseNetQueryConstructor
+                [.. baseNetQueryConstructor
                     .GetParameters()
-                    .Select((parameter, i) => i == 0 ? "" : parameter.DefaultValue)
-                    .ToArray())).Api;
+                    .Select((parameter, i) => i == 0 ? "" : parameter.DefaultValue)])).Api;
         }
         catch (Exception e)
         {
@@ -38,11 +38,55 @@ public static class Shim
         }
     });
 
+    public static bool NetHttpClientDecryptsResponse { get; private set; }
+
+    [HarmonyTranspiler]
+    [HarmonyPatch(typeof(NetHttpClient), "ReadCallback")]
+    public static IEnumerable<CodeInstruction> NetHttpClientReadCallbackTranspiler(IEnumerable<CodeInstruction> instructions)
+    {
+        var instList = instructions.ToList();
+        NetHttpClientDecryptsResponse = instList.Any(
+            inst =>
+                inst.opcode == OpCodes.Callvirt &&
+                inst.operand is MethodInfo method &&
+                method.Name == "Decrypt");
+        return instList; // No changes
+    }
+
     public static string RemoveApiSuffix(string api)
     {
         return !string.IsNullOrEmpty(apiSuffix) && api.EndsWith(apiSuffix)
             ? api.Substring(0, api.Length - apiSuffix.Length)
             : api;
+    }
+
+    public static byte[] DecryptNetPacketBody(byte[] encrypted)
+    {
+        var methods = AccessTools.TypeByName("Net.CipherAES").GetMethods();
+        var method = methods.FirstOrDefault(it => it.Name == "Decrypt" && it.GetParameters().Length <= 2);
+        if (method == null)
+        {
+            MelonLogger.Warning("No matching Net.CipherAES.Decrypt() method found");
+            // Assume encryption code is removed.
+            return encrypted;
+        }
+        if (method.GetParameters().Length == 1)
+        {
+            return (byte[])method.Invoke(null, [encrypted]);
+        }
+        else
+        {
+            object[] args = [encrypted, null];
+            var result = (bool)method.Invoke(null, args);
+            if (result)
+            {
+                return (byte[])args[1];
+            }
+            else
+            {
+                throw new Exception("Net.CipherAES.Decrypt() failed");
+            }
+        }
     }
 
     public delegate string GetAccessTokenMethod(int index);

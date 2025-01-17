@@ -14,6 +14,16 @@ public class AquaMai : MelonMod
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetConsoleOutputCP(uint wCodePageID);
 
+    private void SetCoreBuildInfo(Assembly coreAssembly)
+    {
+        var coreBuildInfo = coreAssembly.GetType("AquaMai.Core.BuildInfo");
+        var buildInfo = typeof(BuildInfo);
+        foreach (var field in buildInfo.GetFields())
+        {
+            coreBuildInfo.GetField(field.Name)?.SetValue(null, field.GetValue(null));
+        }
+    }
+
     public override void OnInitializeMelon()
     {
         // Prevent Chinese characters from being garbled
@@ -23,6 +33,7 @@ public class AquaMai : MelonMod
 
         var modsAssembly = AssemblyLoader.GetAssembly(AssemblyLoader.AssemblyName.Mods);
         var coreAssembly = AssemblyLoader.GetAssembly(AssemblyLoader.AssemblyName.Core);
+        SetCoreBuildInfo(coreAssembly);
         coreAssembly.GetType("AquaMai.Core.Startup")
                     .GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static)
                     .Invoke(null, [modsAssembly, HarmonyInstance]);

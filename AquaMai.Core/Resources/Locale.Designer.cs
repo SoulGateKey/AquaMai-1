@@ -357,5 +357,14 @@ namespace AquaMai.Core.Resources {
                 return ResourceManager.GetString("UserAllUpsertError", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Battle Target: {0}.
+        /// </summary>
+        public static string UserGhostAchievement {
+            get {
+                return ResourceManager.GetString("UserGhostAchievement", resourceCulture);
+            }
+        }
     }
 }

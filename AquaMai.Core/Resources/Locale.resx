@@ -119,4 +119,7 @@
     <data name="TouchPanelReset" xml:space="preserve">
         <value>Touch panel reset</value>
     </data>
+    <data name="UserGhostAchievement" xml:space="preserve">
+        <value>Battle Target: {0}</value>
+    </data>
 </root>

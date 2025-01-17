@@ -36,9 +36,6 @@ public class Fonts
     private static List<TMP_FontAsset> fontAssets = [];
     private static readonly List<TMP_FontAsset> processedFonts = [];
 
-    private static TMP_FontAsset replacementFontAsset;
-    private static List<TMP_FontAsset> fallbackFontAssets = [];
-
     public static void OnBeforePatch()
     {
         var paths = Fonts.paths
@@ -59,20 +56,22 @@ public class Fonts
         fontAssets = fonts
             .Select(f => TMP_FontAsset.CreateFontAsset(f, 90, 9, GlyphRenderMode.SDFAA, 8192, 8192))
             .ToList();
+        
+        fontAssets.ForEach(f => f.ReadFontAssetDefinition());
 
         if (fontAssets.Count == 0)
         {
             MelonLogger.Warning("[Fonts] No font loaded.");
         }
-        else if (addAsFallback)
-        {
-            fallbackFontAssets = fontAssets;
-        }
-        else
-        {
-            replacementFontAsset = fontAssets[0];
-            fallbackFontAssets = fontAssets.Skip(1).ToList();
-        }
+        // else if (addAsFallback)
+        // {
+        //     fallbackFontAssets = fontAssets;
+        // }
+        // else
+        // {
+        //     replacementFontAsset = fontAssets[0];
+        //     fallbackFontAssets = fontAssets.Skip(1).ToList();
+        // }
     }
 
     [HarmonyPatch(typeof(TextMeshProUGUI), "Awake")]
@@ -82,11 +81,11 @@ public class Fonts
         if (fontAssets.Count == 0) return;
         if (processedFonts.Contains(__instance.font)) return;
 
-        if (replacementFontAsset != null)
+        if (!addAsFallback)
         {
-            ProcessReplacement(__instance);
+            __instance.font.ClearFontAssetData();
         }
-        if (fallbackFontAssets.Count > 0)
+        if (fontAssets.Count > 0)
         {
             ProcessFallback(__instance);
         }
@@ -94,51 +93,28 @@ public class Fonts
         processedFonts.Add(__instance.font);
     }
 
-    private static void ProcessReplacement(TextMeshProUGUI __instance)
-    {
-# if DEBUG
-        MelonLogger.Msg($"{__instance.font.name} {__instance.text}");
-# endif
-
-        var materialOrigin = __instance.fontMaterial;
-        var materialSharedOrigin = __instance.fontSharedMaterial;
-        __instance.font = replacementFontAsset;
-
-# if DEBUG
-        MelonLogger.Msg($"shaderKeywords {materialOrigin.shaderKeywords.Join()} {__instance.fontMaterial.shaderKeywords.Join()}");
-# endif
-        // __instance.fontSharedMaterial = materialSharedOrigin;
-
-        // 这样之后该有描边的地方整个字后面都是阴影，它不知道哪里是边
-        // materialOrigin.mainTexture = __instance.fontMaterial.mainTexture;
-        // materialOrigin.mainTextureOffset = __instance.fontMaterial.mainTextureOffset;
-        // materialOrigin.mainTextureScale = __instance.fontMaterial.mainTextureScale;
-        // __instance.fontMaterial.CopyPropertiesFromMaterial(materialOrigin);
-
-        // 这样了之后有描边了，但是描边很细
-        // __instance.fontMaterial.shader = materialOrigin.shader;
-        foreach (var keyword in materialOrigin.shaderKeywords)
-        {
-            __instance.fontMaterial.EnableKeyword(keyword);
-        }
-        // __instance.fontMaterial.globalIlluminationFlags = materialOrigin.globalIlluminationFlags;
-
-        // 原来是 underlay，但是复制这三个属性之后就又变成整个字后面都是阴影了
-        // __instance.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayOffsetY, materialOrigin.GetFloat(ShaderUtilities.ID_UnderlayOffsetY));
-        // __instance.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, materialOrigin.GetFloat(ShaderUtilities.ID_UnderlayOffsetX));
-        // __instance.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayDilate, materialOrigin.GetFloat(ShaderUtilities.ID_UnderlayDilate));
-
-        // if(materialOrigin.shaderKeywords.Contains(ShaderUtilities.Keyword_Underlay))
-        // {
-        //     __instance.fontMaterial.EnableKeyword(ShaderUtilities.Keyword_Glow);
-        //     __instance.fontMaterial.SetFloat(ShaderUtilities.ID_GlowOuter, .5f);
-        //     // __instance.fontMaterial.SetFloat(ShaderUtilities.ID_UnderlayOffsetX, materialOrigin.GetFloat(ShaderUtilities.ID_UnderlayOffsetX));
-        // }
-    }
+//     private static void ProcessReplacement(TextMeshProUGUI __instance)
+//     {
+// # if DEBUG
+//         MelonLogger.Msg($"{__instance.font.name} {__instance.text}");
+// # endif
+//
+//         var materialOrigin = __instance.fontMaterial;
+//         __instance.font = replacementFontAsset;
+//
+// # if DEBUG
+//         MelonLogger.Msg($"shaderKeywords {materialOrigin.shaderKeywords.Join()} {__instance.fontMaterial.shaderKeywords.Join()}");
+// # endif
+//         // if (materialOrigin != null)
+//         // {
+//         //     materialOrigin.SetTexture(ShaderUtilities.ID_MainTex, replacementFontAsset.atlasTexture);
+//         //     __instance.fontMaterial = materialOrigin;
+//         // }
+//     }
 
     private static void ProcessFallback(TextMeshProUGUI __instance)
     {
-        foreach (var fontAsset in fallbackFontAssets)
+        foreach (var fontAsset in fontAssets)
         {
             __instance.font.fallbackFontAssetTable.Add(fontAsset);
         }

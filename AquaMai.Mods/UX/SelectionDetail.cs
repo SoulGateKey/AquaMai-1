@@ -5,10 +5,12 @@ using AquaMai.Config.Attributes;
 using AquaMai.Core.Helpers;
 using AquaMai.Core.Resources;
 using HarmonyLib;
+using JetBrains.Annotations;
 using MAI2.Util;
 using Manager;
 using Manager.MaiStudio;
 using Manager.UserDatas;
+using MelonLoader;
 using Monitor;
 using Process;
 using UnityEngine;
@@ -21,9 +23,15 @@ namespace AquaMai.Mods.UX;
     zh: "选歌界面显示选择的歌曲的详情")]
 public class SelectionDetail
 {
+    [ConfigEntry(
+        en: "Show friend battle target achievement",
+        zh: "显示友人对战目标分数")]
+    private static readonly bool showBattleAchievement = false;
+
     private static readonly Window[] window = new Window[2];
     private static MusicSelectProcess.MusicSelectData SelectData { get; set; }
     private static readonly int[] difficulty = new int[2];
+    [CanBeNull] private static UserGhost userGhost;
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MusicSelectMonitor), "UpdateRivalScore")]
@@ -56,6 +64,8 @@ public class SelectionDetail
         SelectData = ____musicSelect.GetMusic(0);
         if (SelectData == null) return;
         difficulty[player] = ____musicSelect.GetDifficulty(player);
+        var ghostTarget = ____musicSelect.GetCombineMusic(0).musicSelectData[(int)____musicSelect.ScoreType].GhostTarget;
+        userGhost = Singleton<GhostManager>.Instance.GetGhostToEnum(ghostTarget);
 
         window[player] = player == 0 ? __instance.gameObject.AddComponent<P1Window>() : __instance.gameObject.AddComponent<P2Window>();
     }
@@ -86,6 +96,11 @@ public class SelectionDetail
                 dataToShow.Add(Singleton<DataManager>.Instance.GetMusicVersion(SelectData.MusicData.AddVersion.id)?.genreName);
             var notesData = SelectData.MusicData.notesData[difficulty[player]];
             dataToShow.Add($"{notesData?.level}.{notesData?.levelDecimal}");
+
+            if (userGhost != null)
+            {
+                dataToShow.Add(string.Format(Locale.UserGhostAchievement, $"{userGhost.Achievement / 10000m:0.0000}"));
+            }
 
             var rate = CalcB50(SelectData.MusicData, difficulty[player]);
             if (rate > 0)

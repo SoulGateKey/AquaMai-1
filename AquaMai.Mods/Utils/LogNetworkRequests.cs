@@ -128,9 +128,12 @@ public class LogNetworkRequests
 
     private static string InspectResponse(string api, byte[] response)
     {
+        var shouldDecrypt = !Shim.NetHttpClientDecryptsResponse;
+        byte[] decrypted = null;
         try
         {
-            var decoded = Encoding.UTF8.GetString(response);
+            decrypted = shouldDecrypt ? Shim.DecryptNetPacketBody(response) : response;
+            var decoded = Encoding.UTF8.GetString(decrypted);
             if (responseOmittedApiList.Contains(api))
             {
                 return $"<{decoded.Length} characters omitted>";
@@ -151,10 +154,12 @@ public class LogNetworkRequests
         catch (Exception e)
         {
             // Always non-empty when decoding fails.
-            return $"<Failed to decode text ({JSON.Dump(e.Message)}): {response.Length} bytes " +
+            var action = decrypted == null ? "decrypt response" : "decode text";
+            var bytes = decrypted ?? response;
+            return $"<Failed to {action} ({JSON.Dump(e.Message)}): {bytes.Length} bytes " +
                 (responseOmittedApiList.Contains(api)
                     ? "omitted"
-                    : "[" + BitConverter.ToString(response).Replace("-", " ")) + "]" +
+                    : "[" + BitConverter.ToString(bytes).Replace("-", " ")) + "]" +
                 ">";
         }
     }

@@ -5,6 +5,12 @@ using Net;
 using UnityEngine;
 using AquaMai.Config.Attributes;
 using AquaMai.Core.Attributes;
+using Process;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection.Emit;
+using System.Reflection;
 
 namespace AquaMai.Mods.Fix;
 
@@ -135,5 +141,37 @@ public class Common
             __result = 1024;
             return false;
         }
+    }
+
+    [ConfigEntry]
+    private readonly static bool enableAllEvent = true;
+
+    [EnableIf(nameof(enableAllEvent))]
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(EventManager), "IsOpenEvent")]
+    private static bool EnableAllEvent(ref bool __result)
+    {
+        __result = true;
+        return false;
+    }
+
+    [EnableGameVersion(25000)]
+    [HarmonyTranspiler]
+    [HarmonyPatch(typeof(WarningProcess), "OnStart")]
+    private static IEnumerable<CodeInstruction> RemoveEnvironmentCheck(IEnumerable<CodeInstruction> instructions)
+    {
+        var instList = instructions.ToList();
+        var onceDispIndex = instList.FindIndex(
+            inst =>
+                inst.opcode == OpCodes.Ldsfld &&
+                inst.operand is FieldInfo field &&
+                field.Name == "OnceDisp");
+        if (onceDispIndex == -1)
+        {
+            // Failed to find the target instruction, abort.
+            return instList;
+        }
+        // Remove all instructions before the target instruction.
+        return instList.Skip(onceDispIndex);
     }
 }

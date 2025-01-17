@@ -112,4 +112,7 @@
     <data name="TouchPanelReset" xml:space="preserve">
         <value>触摸面板已重置</value>
     </data>
+    <data name="UserGhostAchievement" xml:space="preserve">
+        <value>友人对战目标: {0}</value>
+    </data>
 </root>

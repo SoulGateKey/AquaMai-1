@@ -37,7 +37,7 @@ public class ConfigSerializer(IConfigSerializer.Options Options) : IConfigSerial
             - For easily editing with editors (e.g. VSCode), commented configuration content uses a single hash #, while comment text uses two hashes ##.
         - Lines with square brackets like [OptionalCategory.Section] are sections.
             - Uncomment a section that is commented out by default (i.e. disabled by default) to enable it.
-            - To disable a section that is enabled by default, add a "Disable = true" entry under the section. Removing/commenting it will not work.
+            - To disable a section that is enabled by default, add a "Disabled = true" entry under the section. Removing/commenting it will not work.
         - Lines like "Key = Value" is a configuration entry.
             - Configuration entries apply to the nearest section above them. Do not enable a configuration entry when its section is commented out (will be added to the previous section, which is invalid).
             - Configuration entries take effect when the corresponding section is enabled, regardless of whether they are uncommented.

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using AquaMai.Config.Attributes;
+using AquaMai.Core.Attributes;
 using AquaMai.Core.Helpers;
 using AquaMai.Core.Resources;
 using DB;
@@ -29,6 +30,15 @@ public class ImmediateSave
     [HarmonyPrefix]
     [HarmonyPatch(typeof(StateULUserAime), "RequestUploadUserPlayLogData")]
     public static bool PreRequestUploadUserPlayLogData(StateULUserAime __instance)
+    {
+        Traverse.Create(__instance).Method("RequestUploadUserPortraitData").GetValue();
+        return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(StateULUserAime), "RequestUploadUserPlayLogListData")]
+    [EnableGameVersion(25000)]
+    public static bool PreRequestUploadUserPlayLogListData(StateULUserAime __instance)
     {
         Traverse.Create(__instance).Method("RequestUploadUserPortraitData").GetValue();
         return false;
