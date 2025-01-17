@@ -501,7 +501,8 @@ public static class Futari
         if (!__instance.IsConnectionFolder() || __result == null) return;
         
         var list = PartyMan.GetRecruitListWithoutMe();
-        if (!(__instance.CurrentMusicSelect < 0 || __instance.CurrentMusicSelect >= list.Count))
+        if (list == null) return;
+        if (__instance.CurrentMusicSelect >= 0 && __instance.CurrentMusicSelect < list.Count)
         {
             __result = list[__instance.CurrentMusicSelect];
         }
@@ -511,7 +512,10 @@ public static class Futari
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(MusicSelectProcess), "IsConnectStart")]
-    private static bool RecruitDataOverride(MusicSelectProcess __instance, ref bool __result)
+    private static bool RecruitDataOverride(MusicSelectProcess __instance,
+        List<CombineMusicSelectData> ____connectCombineMusicDataList,
+        SubSequence[] ____currentPlayerSubSequence,
+        ref bool __result)
     {
         __result = false;
         
@@ -523,7 +527,7 @@ public static class Futari
             var recruit = recruits[0];
             Log.Debug($"MusicSelectProcess::IsConnectStart recruit data has been set to {recruit}");
             SetRecruitData.Invoke(__instance, [recruit]);
-            SetConnData.Invoke(__instance, []);
+            SetConnectData(__instance, ____connectCombineMusicDataList, ____currentPlayerSubSequence);
             __result = true;
         }
         return PrefixRet.BLOCK_ORIGINAL;
