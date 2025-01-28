@@ -14,7 +14,6 @@ using Monitor.Entry;
 using Monitor.Entry.Parts.Screens;
 using UnityEngine;
 using Fx;
-using Type = System.Type;
 
 namespace AquaMai.Mods.GameSystem;
 
@@ -27,9 +26,10 @@ public class SinglePlayer
 {
 
     [ConfigEntry(
-en: "Only Display Main Area",
-zh: "只显示主区域")]
-    public static bool OnlyMain = false;
+        en: "Only show the main area, without the sub-monitor.",
+        zh: "只显示主区域，不显示副屏")]
+    public static bool HideSubMonitor = false;
+
     [HarmonyPatch]
     public class WhateverInitialize
     {
@@ -45,7 +45,7 @@ zh: "只显示主区域")]
         {
             Vector3 position = Camera.main.gameObject.transform.position;
             var yOffset = 0f;
-            if (OnlyMain)
+            if (HideSubMonitor)
             {
                 yOffset = -420f;
                 Camera.main.orthographicSize = 540f;
@@ -54,15 +54,6 @@ zh: "只显示主区域")]
             right.localScale = Vector3.zero;
         }
     }
-
-    //这个是错误的.应该移动MeshButton.vertexArray的位置.而不是让所有区域都是矩形判定
-    //[HarmonyPrefix]
-    //[HarmonyPatch(typeof(MeshButton), "IsPointInPolygon", new Type[] { typeof(Vector2[]), typeof(Vector2) })]
-    //public static bool IsPointInPolygon(Vector2[] polygon, ref Vector2 point, MeshButton __instance, ref bool __result)
-    //{
-    //    __result = RectTransformUtility.RectangleContainsScreenPoint(__instance.GetComponent<RectTransform>(), point, Camera.main);
-    //    return false;
-    //}
 
     [ConfigEntry(
         en: "Automatically skip the countdown when logging in with a card in single-player mode.",
