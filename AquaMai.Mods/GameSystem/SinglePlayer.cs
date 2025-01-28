@@ -25,9 +25,15 @@ namespace AquaMai.Mods.GameSystem;
     zh: "单人模式，不显示 2P")]
 public class SinglePlayer
 {
+
+    [ConfigEntry(
+en: "Only Display Main Area",
+zh: "只显示主区域")]
+    public static bool OnlyMain = false;
     [HarmonyPatch]
     public class WhateverInitialize
     {
+
         public static IEnumerable<MethodBase> TargetMethods()
         {
             var lateInitialize = AccessTools.Method(typeof(Main.GameMain), "LateInitialize", [typeof(MonoBehaviour), typeof(Transform), typeof(Transform)]);
@@ -38,18 +44,25 @@ public class SinglePlayer
         public static void Prefix(MonoBehaviour gameMainObject, ref Transform left, ref Transform right)
         {
             Vector3 position = Camera.main.gameObject.transform.position;
-            Camera.main.gameObject.transform.position = new Vector3(position.x - 540f, position.y, position.z);
+            var yOffset = 0f;
+            if (OnlyMain)
+            {
+                yOffset = -420f;
+                Camera.main.orthographicSize = 540f;
+            }
+            Camera.main.gameObject.transform.position = new Vector3(position.x - 540f, position.y + yOffset, position.z);
             right.localScale = Vector3.zero;
         }
     }
 
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(MeshButton), "IsPointInPolygon", new Type[] { typeof(Vector2[]), typeof(Vector2) })]
-    public static bool IsPointInPolygon(Vector2[] polygon, ref Vector2 point, MeshButton __instance, ref bool __result)
-    {
-        __result = RectTransformUtility.RectangleContainsScreenPoint(__instance.GetComponent<RectTransform>(), point, Camera.main);
-        return false;
-    }
+    //这个是错误的.应该移动MeshButton.vertexArray的位置.而不是让所有区域都是矩形判定
+    //[HarmonyPrefix]
+    //[HarmonyPatch(typeof(MeshButton), "IsPointInPolygon", new Type[] { typeof(Vector2[]), typeof(Vector2) })]
+    //public static bool IsPointInPolygon(Vector2[] polygon, ref Vector2 point, MeshButton __instance, ref bool __result)
+    //{
+    //    __result = RectTransformUtility.RectangleContainsScreenPoint(__instance.GetComponent<RectTransform>(), point, Camera.main);
+    //    return false;
+    //}
 
     [ConfigEntry(
         en: "Automatically skip the countdown when logging in with a card in single-player mode.",
