@@ -22,7 +22,10 @@ public class AquaMai : MelonMod
         {
             coreBuildInfo.GetField(field.Name)?.SetValue(null, field.GetValue(null));
         }
+        coreBuildInfo.GetField("ModAssembly")?.SetValue(null, MelonAssembly);
     }
+
+    private static MethodInfo onGUIMethod;
 
     public override void OnInitializeMelon()
     {
@@ -37,14 +40,13 @@ public class AquaMai : MelonMod
         coreAssembly.GetType("AquaMai.Core.Startup")
                     .GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static)
                     .Invoke(null, [modsAssembly, HarmonyInstance]);
+        onGUIMethod = coreAssembly.GetType("AquaMai.Core.Startup")
+                                  .GetMethod("OnGUI", BindingFlags.Public | BindingFlags.Static);
     }
 
     public override void OnGUI()
     {
-        var coreAssembly = AssemblyLoader.GetAssembly(AssemblyLoader.AssemblyName.Core);
-        coreAssembly.GetType("AquaMai.Core.Startup")
-                    .GetMethod("OnGUI", BindingFlags.Public | BindingFlags.Static)
-                    .Invoke(null, []);
         base.OnGUI();
+        onGUIMethod?.Invoke(null, []);
     }
 }

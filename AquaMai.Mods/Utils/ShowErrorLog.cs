@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -9,6 +10,7 @@ using HarmonyLib;
 using Main;
 using MelonLoader;
 using UnityEngine;
+using BuildInfo = AquaMai.Core.BuildInfo;
 
 namespace AquaMai.Mods.Utils;
 
@@ -18,6 +20,11 @@ namespace AquaMai.Mods.Utils;
 public class ShowErrorLog
 {
     private static Ui _errorUi;
+
+    [ConfigEntry(
+        en: "Use new error handler",
+        zh: "使用新版错误报告生成器")]
+    private static readonly bool useNewErrorHandler = true;
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(GameMain), "ExceptionHandler")]
@@ -41,13 +48,33 @@ public class ShowErrorLog
             _errorUi.SetErrorLog(e.ToString());
         }
 
-        Application.quitting += ApplicationOnQuitting;
-        _errorUi.StartCoroutine(_errorUi.Show());
+        if (useNewErrorHandler)
+        {
+            Application.quitting += ApplicationOnQuittingNew;
+        }
+        else
+        {
+            Application.quitting += ApplicationOnQuitting;
+            _errorUi.StartCoroutine(_errorUi.Show());
+        }
     }
 
     private static void ApplicationOnQuitting()
     {
         Thread.Sleep(Timeout.Infinite);
+    }
+
+    public static void ApplicationOnQuittingNew()
+    {
+        MelonLogger.Msg("Starting Crash Handler...");
+        var psi = new ProcessStartInfo
+        {
+            FileName = BuildInfo.ModAssembly.Location,
+            Arguments = "ErrorReport",
+            WorkingDirectory = Path.GetDirectoryName(Application.dataPath),
+            UseShellExecute = false,
+        };
+        System.Diagnostics.Process.Start(psi);
     }
 
     private class Ui : MonoBehaviour

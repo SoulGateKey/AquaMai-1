@@ -39,7 +39,7 @@ public static class AssemblyLoader
         }
     }
 
-    private static Assembly LoadAssemblyFromResource(string assemblyName)
+    public static Assembly LoadAssemblyFromResource(string assemblyName)
     {
         var executingAssembly = Assembly.GetExecutingAssembly();
         using var decompressedStream = executingAssembly.GetManifestResourceStream(assemblyName);

@@ -7,8 +7,8 @@ using UnityEngine;
 namespace AquaMai.Mods.GameSystem;
 
 [ConfigSection(
-    en: "Windowed Mode / Resolution Settings.",
-    zh: "窗口化 / 分辨率设置")]
+    en: "Resolution Settings / Windowed Mode.",
+    zh: "分辨率设置 / 窗口化")]
 public class Window
 {
     [ConfigEntry(

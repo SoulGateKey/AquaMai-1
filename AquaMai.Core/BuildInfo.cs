@@ -1,3 +1,5 @@
+using MelonLoader;
+
 namespace AquaMai.Core;
 
 public static class BuildInfo
@@ -10,6 +12,10 @@ public static class BuildInfo
     public static string Author;
     public static string Company;
     public static string Version;
+    public static string GitVersion;
+    public static string BuildDate;
     public static string DownloadLink;
+
+    public static MelonAssembly ModAssembly;
 }
 

@@ -4,7 +4,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{788BC472-59F7-46F6-B760-65C18BA74389}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>WinExe</OutputType>
     <RootNamespace>AquaMai</RootNamespace>
     <AssemblyName>AquaMai</AssemblyName>
     <TargetFramework>net472</TargetFramework>
@@ -48,12 +48,12 @@
 
   <UsingTask TaskName="PostBuildPatch" AssemblyFile="$(OutputPath)AquaMai.Build.dll" />
   <Target Name="PostBuildPatch" AfterTargets="AfterBuild" Condition=" '$(Configuration)' == 'Release' ">
-    <PostBuildPatch DllPath="$(OutputPath)$(AssemblyName).dll" />
+    <PostBuildPatch DllPath="$(OutputPath)$(AssemblyName).exe" />
   </Target>
 
   <UsingTask TaskName="GenerateExampleConfig" AssemblyFile="$(OutputPath)AquaMai.Build.dll" />
   <Target Name="GenerateExampleConfig" AfterTargets="AfterBuild">
-    <GenerateExampleConfig DllPath="$(OutputPath)$(AssemblyName).dll" OutputPath="$(OutputPath)" />
+    <GenerateExampleConfig DllPath="$(OutputPath)$(AssemblyName).exe" OutputPath="$(OutputPath)" />
   </Target>
 
   <ItemGroup>
@@ -68,6 +68,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="$(OutputPath)AquaMai.Mods.dll">
       <LogicalName>AquaMai.Mods.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="$(OutputPath)AquaMai.ErrorReport.dll">
+      <LogicalName>AquaMai.ErrorReport.dll</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 
