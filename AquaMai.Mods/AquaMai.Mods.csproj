@@ -50,6 +50,7 @@
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
     <Reference Include="System.Runtime" />
     <Reference Include="System.Security" />
     <Reference Include="System.Xml" />
@@ -122,6 +123,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="System.Windows.Forms" Private="true" />
     <Reference Include="System.Numerics" Private="true" />
   </ItemGroup>
 
@@ -132,10 +134,16 @@
     </PackageReference>
     <PackageReference Include="hidlibrary" Version="3.3.40" />
     <PackageReference Include="ILMerge.Fody" Version="1.24.0" />
+    <PackageReference Include="Matt.Encoding.Fountain" Version="1.1.5" />
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="FodyWeavers.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Utils\CrashHandler\CrashForm.resx" />
   </ItemGroup>
 
 </Project>

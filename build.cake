@@ -47,16 +47,11 @@ Task("Build")
     .IsDependentOn("Restore")
     .Does(() =>
 {
-    if (FileExists("Output/AquaMai.dll"))
-    {
-        DeleteFile("Output/AquaMai.dll");
-    }
     // 使用 dotnet build 进行构建
     DotNetBuild("./AquaMai.sln", new DotNetBuildSettings
     {
         Configuration = configuration
     });
-    MoveFile("Output/AquaMai.exe", "Output/AquaMai.dll");
 });
 
 RunTarget(target);
