@@ -81,7 +81,7 @@ public partial class SinglePlayer
 # endif
         TimeManager.MarkGameStartTime();
         Singleton<EventManager>.Instance.UpdateEvent();
-        Singleton<ScoreRankingManager>.Instance.UpdateData();
+        if(GameInfo.GameVersion >= 25000 && GameInfo.GameId == "SDEZ") {Singleton<ScoreRankingManager>.Instance.UpdateData();}
         SharedInstances.GameMainObject.StartCoroutine(LaterDisableCardReader());
         __instance.Process.CreateDownloadProcess();
         __instance.ProcessManager.SendMessage(new Message(ProcessType.CommonProcess, 30001));
